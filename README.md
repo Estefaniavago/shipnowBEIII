@@ -40,6 +40,76 @@ Si falta `PORT`, `MONGODB_URI` o `NODE_ENV`, la app **no arranca** y muestra un 
 | GET | `/api/users` | Lista usuarios (sin password) |
 | GET / PUT / DELETE | `/api/users/:id` | Detalle / actualizar / eliminar |
 | POST | `/api/users` | Crear usuario (password hasheado) |
+| GET / POST / DELETE | `/api/mocks/...` | Mocking y datos de prueba (ver sección siguiente) |
+
+## Mocking y datos de prueba (`/api/mocks`)
+
+Genera usuarios, repartidores, pedidos y entregas simulados. Los endpoints `GET` **no guardan nada**; el `POST /seed` sí inserta en MongoDB.
+
+### Roles, estados y prioridades (constantes en `src/constants/index.js`)
+
+| Constante | Valores |
+|---|---|
+| `USER_ROLES` | `ADMIN`, `USER` (cliente), `COURIER` (repartidor) |
+| `ORDER_STATUS` | `PENDING`, `CONFIRMED`, `IN_TRANSIT`, `DELIVERED`, `CANCELLED` |
+| `ORDER_PRIORITY` | `LOW`, `NORMAL`, `HIGH`, `URGENT` |
+| `DELIVERY_STATUS` | `PENDING`, `IN_TRANSIT`, `DELIVERED`, `FAILED` |
+
+### Datos simulados (no se guardan)
+
+`qty` es opcional (por defecto 10, máximo 100; fuera de rango devuelve 400).
+
+| Endpoint | Devuelve |
+|---|---|
+| `GET /api/mocks/users?qty=2` | Clientes (rol `USER`) |
+| `GET /api/mocks/couriers?qty=2` | Repartidores (rol `COURIER`) |
+| `GET /api/mocks/orders?qty=2` | Pedidos con cliente, items, total, estado y prioridad |
+| `GET /api/mocks/deliveries?qty=2` | Entregas asociadas a un pedido y a un repartidor |
+| `GET /api/mocks/dataset?qty=5` | Todo junto, con relaciones coherentes entre sí |
+
+Ejemplo (`GET /api/mocks/users?qty=2`):
+```json
+[
+  { "_id": "6650...", "name": "Ana Pérez", "email": "ana.perez.4821@test.com", "role": "USER", "isMock": true },
+  { "_id": "6650...", "name": "Luis Gómez", "email": "luis.gomez.307@test.com", "role": "USER", "isMock": true }
+]
+```
+
+### Cargar datos de prueba en MongoDB
+
+`POST /api/mocks/seed?qty=10&type=users`
+
+| `type` | Qué inserta |
+|---|---|
+| `users` (por defecto) | `qty` clientes |
+| `couriers` | `qty` repartidores |
+| `orders` | `qty` pedidos asociados a clientes que ya existen en la base |
+| `deliveries` | Entregas para pedidos que aún no tienen una, con repartidores existentes |
+| `all` | Todo el conjunto a la vez, con las relaciones ya resueltas |
+
+Respuesta de `POST /api/mocks/seed?qty=10`:
+```json
+{ "insertados": 10, "coleccion": "usuarios" }
+```
+Con `type=all` la respuesta suma el total y agrega un `detalle` por colección. Si falta una dependencia (por ejemplo `type=orders` sin clientes) responde 409 con un mensaje que indica qué sembrar primero.
+
+Los usuarios de prueba se guardan con el password `Test1234` (hasheado) y el dominio `@test.com`.
+
+**Limpieza:** todo lo generado queda marcado con `isMock: true`. `DELETE /api/mocks/seed` borra solo esos registros y no toca datos reales.
+
+### Reglas de coherencia
+
+- Cada pedido apunta a un usuario con rol `USER`.
+- Los repartidores son usuarios con rol `COURIER`.
+- Pedidos `PENDING` o `CANCELLED` no tienen entrega. `CONFIRMED` genera una entrega `PENDING` sin repartidor. `IN_TRANSIT` y `DELIVERED` generan una entrega con repartidor, y `deliveredAt` solo si fue entregada.
+
+### Cómo se reparte la lógica por capas
+
+- **Router** (`mock.routes.js`): solo conecta paths con métodos del controller.
+- **Controller** (`mock.controller.js`): lee `qty` y `type` de la query y devuelve el status code.
+- **Service** (`mock.service.js`): valida `qty` y `type`, arma datasets coherentes, aplica las reglas de arriba y decide qué insertar.
+- **Generador** (`utils/mock.generator.js`): funciones puras que fabrican cada entidad con las constantes (sin base de datos).
+- **Repositories**: únicos que usan Mongoose (`insertMany`, búsqueda de ids por rol y borrado de mocks).
 
 ## Estructura
 
@@ -53,7 +123,7 @@ src/
 ├── models/        Solo esquemas
 ├── routes/        Solo conectan path -> método del controller
 ├── middlewares/   Manejo de errores
-└── utils/         AppError
+└── utils/         AppError, mock.generator.js (generador puro de datos simulados)
 test/              Tests de services con un repository falso
 ```
 

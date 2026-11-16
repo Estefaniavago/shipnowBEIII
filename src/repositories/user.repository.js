@@ -34,6 +34,22 @@ class UserRepository {
     return publicUser;
   }
 
+  // Inserta varios usuarios de una vez. Devuelve la cantidad insertada.
+  async insertMany(users) {
+    const inserted = await UserModel.insertMany(users);
+    return inserted.length;
+  }
+
+  async getIdsByRole(role, limit = 100) {
+    const users = await UserModel.find({ role }, '_id').limit(limit).lean();
+    return users.map((u) => String(u._id));
+  }
+
+  async deleteMocks() {
+    const { deletedCount } = await UserModel.deleteMany({ isMock: true });
+    return deletedCount;
+  }
+
   async update(id, data) {
     if (!isValidId(id)) return null;
     return UserModel.findByIdAndUpdate(id, data, {

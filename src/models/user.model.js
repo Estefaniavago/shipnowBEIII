@@ -11,6 +11,7 @@ const userSchema = new mongoose.Schema(
       enum: Object.values(USER_ROLES),
       default: USER_ROLES.USER,
     },
+    isMock: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
