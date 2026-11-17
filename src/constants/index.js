@@ -74,3 +74,14 @@ export const MOCK_COLLECTIONS = Object.freeze({
   [MOCK_TYPES.DELIVERIES]: 'entregas',
   [MOCK_TYPES.ALL]: 'todas',
 });
+
+export const HTTP_STATUS = Object.freeze({
+  OK: 200,
+  CREATED: 201,
+  NO_CONTENT: 204,
+  BAD_REQUEST: 400,
+  NOT_FOUND: 404,
+  CONFLICT: 409,
+  INTERNAL_SERVER_ERROR: 500,
+  SERVICE_UNAVAILABLE: 503,
+});

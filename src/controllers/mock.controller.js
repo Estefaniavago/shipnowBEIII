@@ -1,58 +1,32 @@
 import { mockService } from '../services/index.js';
+import { HTTP_STATUS } from '../constants/index.js';
+import { asyncHandler } from '../utils/async.handler.js';
 
-export const getUsers = (req, res, next) => {
-  try {
-    res.status(200).json(mockService.getUsers(req.query.qty));
-  } catch (error) {
-    next(error);
-  }
-};
+export const getUsers = asyncHandler((req, res) => {
+  res.status(HTTP_STATUS.OK).json(mockService.getUsers(req.query.qty));
+});
 
-export const getCouriers = (req, res, next) => {
-  try {
-    res.status(200).json(mockService.getCouriers(req.query.qty));
-  } catch (error) {
-    next(error);
-  }
-};
+export const getCouriers = asyncHandler((req, res) => {
+  res.status(HTTP_STATUS.OK).json(mockService.getCouriers(req.query.qty));
+});
 
-export const getOrders = (req, res, next) => {
-  try {
-    res.status(200).json(mockService.getOrders(req.query.qty));
-  } catch (error) {
-    next(error);
-  }
-};
+export const getOrders = asyncHandler((req, res) => {
+  res.status(HTTP_STATUS.OK).json(mockService.getOrders(req.query.qty));
+});
 
-export const getDeliveries = (req, res, next) => {
-  try {
-    res.status(200).json(mockService.getDeliveries(req.query.qty));
-  } catch (error) {
-    next(error);
-  }
-};
+export const getDeliveries = asyncHandler((req, res) => {
+  res.status(HTTP_STATUS.OK).json(mockService.getDeliveries(req.query.qty));
+});
 
-export const getDataset = (req, res, next) => {
-  try {
-    res.status(200).json(mockService.getDataset(req.query.qty));
-  } catch (error) {
-    next(error);
-  }
-};
+export const getDataset = asyncHandler((req, res) => {
+  res.status(HTTP_STATUS.OK).json(mockService.getDataset(req.query.qty));
+});
 
-export const seed = async (req, res, next) => {
-  try {
-    const { qty, type } = req.query;
-    res.status(201).json(await mockService.seed({ qty, type }));
-  } catch (error) {
-    next(error);
-  }
-};
+export const seed = asyncHandler(async (req, res) => {
+  const { qty, type } = req.query;
+  res.status(HTTP_STATUS.CREATED).json(await mockService.seed({ qty, type }));
+});
 
-export const clear = async (req, res, next) => {
-  try {
-    res.status(200).json(await mockService.clear());
-  } catch (error) {
-    next(error);
-  }
-};
+export const clear = asyncHandler(async (req, res) => {
+  res.status(HTTP_STATUS.OK).json(await mockService.clear());
+});

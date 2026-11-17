@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MockService } from '../src/services/mock.service.js';
+import { ERROR_CODES } from '../src/errors/index.js';
 import { USER_ROLES, ORDER_STATUS, MOCK, MOCK_TYPES } from '../src/constants/index.js';
 
 function makeService({ userIds = {}, orders = [], assigned = [] } = {}) {
@@ -37,11 +38,48 @@ test('getUsers: devuelve qty usuarios con rol USER sin tocar la base', () => {
   assert.equal(saved.users.length, 0);
 });
 
-test('qty inválida o fuera de rango => 400', () => {
+test('qty inválida => MOCK_QTY_INVALID 400', () => {
   const { service } = makeService();
-  for (const bad of ['0', '-1', 'abc', '1.5', String(MOCK.MAX_QTY + 1)]) {
-    assert.throws(() => service.getUsers(bad), { statusCode: 400 });
+  for (const bad of ['0', 'abc', '1.5', 'NaN', 'Infinity']) {
+    assert.throws(() => service.getUsers(bad), { code: ERROR_CODES.MOCK_QTY_INVALID, statusCode: 400 });
   }
+});
+
+test('qty negativa => MOCK_QTY_NEGATIVE 400', () => {
+  const { service } = makeService();
+  for (const bad of ['-1', '-50', '-0.5']) {
+    assert.throws(() => service.getOrders(bad), { code: ERROR_CODES.MOCK_QTY_NEGATIVE, statusCode: 400 });
+  }
+});
+
+test('qty mayor al máximo => MOCK_QTY_OUT_OF_RANGE 400', () => {
+  const { service } = makeService();
+  assert.throws(() => service.getDataset(String(MOCK.MAX_QTY + 1)), (err) =>
+    err.code === ERROR_CODES.MOCK_QTY_OUT_OF_RANGE && err.details[0].max === MOCK.MAX_QTY);
+});
+
+test('seed: qty inválida y type inválido se rechazan antes de tocar la base', async () => {
+  const { service, saved } = makeService();
+  await assert.rejects(() => service.seed({ qty: '-3' }), { code: ERROR_CODES.MOCK_QTY_NEGATIVE });
+  await assert.rejects(() => service.seed({ qty: 'x', type: MOCK_TYPES.USERS }), { code: ERROR_CODES.MOCK_QTY_INVALID });
+  await assert.rejects(() => service.seed({ qty: 5, type: 'cosas' }), { code: ERROR_CODES.MOCK_TYPE_INVALID });
+  assert.equal(saved.users.length, 0);
+});
+
+test('seed: si MongoDB falla => MOCK_SEED_FAILED con lo insertado antes del error', async () => {
+  const { service } = makeService();
+  service.orderRepository.insertMany = async () => {
+    throw new Error('connection lost');
+  };
+  await assert.rejects(
+    () => service.seed({ qty: 3, type: MOCK_TYPES.ALL }),
+    (err) =>
+      err.code === ERROR_CODES.MOCK_SEED_FAILED &&
+      err.statusCode === 500 &&
+      err.cause.message === 'connection lost' &&
+      err.details[0].collection === 'pedidos' &&
+      err.details[0].insertadosAntesDelError.usuarios === 3
+  );
 });
 
 test('qty por defecto cuando no se envía', () => {
@@ -85,7 +123,7 @@ test('seed couriers: guarda con rol COURIER', async () => {
 
 test('seed orders sin clientes en la base => 409', async () => {
   const { service } = makeService();
-  await assert.rejects(() => service.seed({ qty: 2, type: MOCK_TYPES.ORDERS }), { statusCode: 409 });
+  await assert.rejects(() => service.seed({ qty: 2, type: MOCK_TYPES.ORDERS }), { code: ERROR_CODES.MOCK_DEPENDENCY_MISSING, statusCode: 409 });
 });
 
 test('seed orders: usa ids de clientes existentes', async () => {
@@ -111,9 +149,9 @@ test('seed deliveries: omite pedidos que ya tienen entrega y asigna repartidores
 });
 
 test('seed deliveries sin pedidos => 409; sin repartidores => 409', async () => {
-  await assert.rejects(() => makeService().service.seed({ type: MOCK_TYPES.DELIVERIES }), { statusCode: 409 });
+  await assert.rejects(() => makeService().service.seed({ type: MOCK_TYPES.DELIVERIES }), { code: ERROR_CODES.MOCK_DEPENDENCY_MISSING, statusCode: 409 });
   const noCouriers = makeService({ orders: [{ _id: 'o1', status: ORDER_STATUS.DELIVERED }] });
-  await assert.rejects(() => noCouriers.service.seed({ type: MOCK_TYPES.DELIVERIES }), { statusCode: 409 });
+  await assert.rejects(() => noCouriers.service.seed({ type: MOCK_TYPES.DELIVERIES }), { code: ERROR_CODES.MOCK_DEPENDENCY_MISSING, statusCode: 409 });
 });
 
 test('seed all: inserta todo y suma el detalle', async () => {
@@ -129,7 +167,7 @@ test('seed all: inserta todo y suma el detalle', async () => {
 
 test('seed con type inválido => 400', async () => {
   const { service } = makeService();
-  await assert.rejects(() => service.seed({ type: 'cosas' }), { statusCode: 400 });
+  await assert.rejects(() => service.seed({ type: 'cosas' }), { code: ERROR_CODES.MOCK_TYPE_INVALID, statusCode: 400 });
 });
 
 test('clear: borra solo mocks y informa cantidades', async () => {

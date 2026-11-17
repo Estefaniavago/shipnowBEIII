@@ -1,9 +1,29 @@
 import bcrypt from 'bcryptjs';
 import { USER_ROLES } from '../constants/index.js';
-import { AppError } from '../utils/AppError.js';
+import {
+  UserNotFoundError,
+  MissingFieldsError,
+  InvalidRoleError,
+  EmailAlreadyExistsError,
+  RequestValidationError,
+} from '../errors/index.js';
+import { assertValidId, findMissingFields, parsePagination } from '../utils/validators.js';
 
 const SALT_ROUNDS = 10;
+const MIN_PASSWORD_LENGTH = 6;
 const validRoles = Object.values(USER_ROLES);
+
+function assertValidRole(role) {
+  if (role !== undefined && !validRoles.includes(role)) throw new InvalidRoleError(role, validRoles);
+}
+
+function assertValidPassword(password) {
+  if (typeof password !== 'string' || password.length < MIN_PASSWORD_LENGTH) {
+    throw new RequestValidationError([
+      { field: 'password', message: `debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres` },
+    ]);
+  }
+}
 
 export class UserService {
   constructor(userRepository) {
@@ -11,34 +31,37 @@ export class UserService {
   }
 
   async getAll({ page, limit } = {}) {
-    return this.userRepository.getAll({ page, limit });
+    return this.userRepository.getAll(parsePagination({ page, limit }));
   }
 
   async getById(id) {
+    assertValidId(id);
     const user = await this.userRepository.getById(id);
-    if (!user) throw new AppError('Usuario no encontrado', 404);
+    if (!user) throw new UserNotFoundError(id);
     return user;
   }
 
-  async create({ name, email, password, role }) {
-    if (!name || !email || !password) throw new AppError('name, email y password son obligatorios', 400);
-    if (password.length < 6) throw new AppError('El password debe tener al menos 6 caracteres', 400);
-    if (role && !validRoles.includes(role)) {
-      throw new AppError(`Rol inválido. Permitidos: ${validRoles.join(', ')}`, 400);
-    }
-    if (await this.userRepository.existsByEmail(email)) throw new AppError('El email ya está registrado', 409);
+  async create(data = {}) {
+    const missing = findMissingFields(data, ['name', 'email', 'password']);
+    if (missing.length) throw new MissingFieldsError(missing);
+    const { name, email, password, role } = data;
+
+    assertValidPassword(password);
+    assertValidRole(role);
+    if (await this.userRepository.existsByEmail(email)) throw new EmailAlreadyExistsError(email);
 
     const hashed = await bcrypt.hash(password, SALT_ROUNDS);
     return this.userRepository.create({ name, email, password: hashed, role: role ?? USER_ROLES.USER });
   }
 
-  async update(id, data) {
+  async update(id, data = {}) {
     await this.getById(id);
     const changes = { ...data };
-    if (changes.role && !validRoles.includes(changes.role)) {
-      throw new AppError(`Rol inválido. Permitidos: ${validRoles.join(', ')}`, 400);
+    assertValidRole(changes.role);
+    if (changes.password !== undefined) {
+      assertValidPassword(changes.password);
+      changes.password = await bcrypt.hash(changes.password, SALT_ROUNDS);
     }
-    if (changes.password) changes.password = await bcrypt.hash(changes.password, SALT_ROUNDS);
     return this.userRepository.update(id, changes);
   }
 

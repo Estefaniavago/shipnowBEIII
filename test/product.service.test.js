@@ -2,6 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ProductService } from '../src/services/product.service.js';
 import { PRODUCT_STATUS } from '../src/constants/index.js';
+import { ERROR_CODES } from '../src/errors/index.js';
+
+const ID1 = 'a'.repeat(24);
+const MISSING_ID = 'b'.repeat(24);
 
 // Repository falso en memoria: el Service se prueba sin base de datos.
 function makeFakeRepo(initial = []) {
@@ -44,7 +48,7 @@ test('create: stock 0 => OUT_OF_STOCK', async () => {
 
 test('create: precio negativo => error 400', async () => {
   const service = new ProductService(makeFakeRepo());
-  await assert.rejects(() => service.create({ name: 'X', price: -1, stock: 1 }), { statusCode: 400 });
+  await assert.rejects(() => service.create({ name: 'X', price: -1, stock: 1 }), { code: ERROR_CODES.NEGATIVE_VALUE, statusCode: 400 });
 });
 
 test('getAll: por defecto excluye OUT_OF_STOCK', async () => {
@@ -59,19 +63,52 @@ test('getAll: includeOutOfStock no excluye nada', async () => {
   assert.deepEqual(repo.calls.getAll.excludeStatuses, []);
 });
 
-test('getById: inexistente => error 404', async () => {
+test('getById: inexistente => PRODUCT_NOT_FOUND 404', async () => {
   const service = new ProductService(makeFakeRepo());
-  await assert.rejects(() => service.getById('nope'), { statusCode: 404 });
+  await assert.rejects(() => service.getById(MISSING_ID), { code: ERROR_CODES.PRODUCT_NOT_FOUND, statusCode: 404 });
+});
+
+test('getById: id con formato inválido => INVALID_ID 400', async () => {
+  const service = new ProductService(makeFakeRepo());
+  await assert.rejects(() => service.getById('nope'), { code: ERROR_CODES.INVALID_ID, statusCode: 400 });
+});
+
+test('create: faltan campos => MISSING_FIELDS con detalle', async () => {
+  const service = new ProductService(makeFakeRepo());
+  await assert.rejects(
+    () => service.create({ stock: 1 }),
+    (err) => err.code === ERROR_CODES.MISSING_FIELDS && err.details.length === 2
+  );
+});
+
+test('create: price no numérico => VALIDATION_ERROR', async () => {
+  const service = new ProductService(makeFakeRepo());
+  await assert.rejects(() => service.create({ name: 'X', price: 'abc' }), { code: ERROR_CODES.VALIDATION_ERROR });
+});
+
+test('update: status inválido => INVALID_STATUS', async () => {
+  const repo = makeFakeRepo([{ _id: ID1, name: 'A', price: 1, stock: 3, status: PRODUCT_STATUS.AVAILABLE }]);
+  await assert.rejects(() => new ProductService(repo).update(ID1, { status: 'ROTO' }), { code: ERROR_CODES.INVALID_STATUS });
+});
+
+test('update: stock negativo => NEGATIVE_VALUE', async () => {
+  const repo = makeFakeRepo([{ _id: ID1, name: 'A', price: 1, stock: 3, status: PRODUCT_STATUS.AVAILABLE }]);
+  await assert.rejects(() => new ProductService(repo).update(ID1, { stock: -5 }), { code: ERROR_CODES.NEGATIVE_VALUE });
+});
+
+test('getAll: page inválida => VALIDATION_ERROR', async () => {
+  await assert.rejects(() => new ProductService(makeFakeRepo()).getAll({ page: '0' }), { code: ERROR_CODES.VALIDATION_ERROR });
+  await assert.rejects(() => new ProductService(makeFakeRepo()).getAll({ limit: '1000' }), { code: ERROR_CODES.VALIDATION_ERROR });
 });
 
 test('update: pasar stock a 0 cambia el estado a OUT_OF_STOCK', async () => {
-  const repo = makeFakeRepo([{ _id: '1', name: 'A', price: 1, stock: 3, status: PRODUCT_STATUS.AVAILABLE }]);
-  const updated = await new ProductService(repo).update('1', { stock: 0 });
+  const repo = makeFakeRepo([{ _id: ID1, name: 'A', price: 1, stock: 3, status: PRODUCT_STATUS.AVAILABLE }]);
+  const updated = await new ProductService(repo).update(ID1, { stock: 0 });
   assert.equal(updated.status, PRODUCT_STATUS.OUT_OF_STOCK);
 });
 
 test('update: DISCONTINUED se mantiene aunque haya stock', async () => {
-  const repo = makeFakeRepo([{ _id: '1', name: 'A', price: 1, stock: 0, status: PRODUCT_STATUS.DISCONTINUED }]);
-  const updated = await new ProductService(repo).update('1', { stock: 10 });
+  const repo = makeFakeRepo([{ _id: ID1, name: 'A', price: 1, stock: 0, status: PRODUCT_STATUS.DISCONTINUED }]);
+  const updated = await new ProductService(repo).update(ID1, { stock: 10 });
   assert.equal(updated.status, PRODUCT_STATUS.DISCONTINUED);
 });

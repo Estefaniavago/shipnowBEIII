@@ -1,5 +1,16 @@
 import { PRODUCT_STATUS } from '../constants/index.js';
-import { AppError } from '../utils/AppError.js';
+import {
+  ProductNotFoundError,
+  MissingFieldsError,
+  InvalidStatusError,
+} from '../errors/index.js';
+import {
+  assertValidId,
+  assertNonNegative,
+  findMissingFields,
+  parsePagination,
+  toNumber,
+} from '../utils/validators.js';
 
 // Regla de negocio: el estado depende del stock (salvo que esté discontinuado).
 function resolveStatus(stock, currentStatus) {
@@ -13,37 +24,55 @@ export class ProductService {
   }
 
   async getAll({ includeOutOfStock = false, page, limit } = {}) {
+    const pagination = parsePagination({ page, limit });
     const excludeStatuses = includeOutOfStock ? [] : [PRODUCT_STATUS.OUT_OF_STOCK];
-    return this.productRepository.getAll({ excludeStatuses, page, limit });
+    return this.productRepository.getAll({ excludeStatuses, ...pagination });
   }
 
   async getById(id) {
+    assertValidId(id);
     const product = await this.productRepository.getById(id);
-    if (!product) throw new AppError('Producto no encontrado', 404);
+    if (!product) throw new ProductNotFoundError(id);
     return product;
   }
 
-  async create(data) {
-    const { name, price } = data;
-    const stock = Number(data.stock ?? 0);
-    if (!name || price === undefined) throw new AppError('name y price son obligatorios', 400);
-    if (Number(price) < 0 || stock < 0) throw new AppError('price y stock no pueden ser negativos', 400);
+  async create(data = {}) {
+    const missing = findMissingFields(data, ['name', 'price']);
+    if (missing.length) throw new MissingFieldsError(missing);
+
+    const price = toNumber('price', data.price);
+    const stock = data.stock === undefined ? 0 : toNumber('stock', data.stock);
+    assertNonNegative('price', price);
+    assertNonNegative('stock', stock);
 
     return this.productRepository.create({
       ...data,
+      price,
       stock,
       status: resolveStatus(stock, undefined),
     });
   }
 
-  async update(id, data) {
+  async update(id, data = {}) {
     const current = await this.getById(id);
-    const stock = data.stock !== undefined ? Number(data.stock) : current.stock;
-    if (stock < 0 || (data.price !== undefined && Number(data.price) < 0)) {
-      throw new AppError('price y stock no pueden ser negativos', 400);
+    const changes = { ...data };
+
+    if (data.price !== undefined) {
+      changes.price = toNumber('price', data.price);
+      assertNonNegative('price', changes.price);
     }
-    const status = data.status ?? resolveStatus(stock, current.status);
-    return this.productRepository.update(id, { ...data, stock, status });
+    if (data.stock !== undefined) {
+      changes.stock = toNumber('stock', data.stock);
+      assertNonNegative('stock', changes.stock);
+    }
+    const validStatuses = Object.values(PRODUCT_STATUS);
+    if (data.status !== undefined && !validStatuses.includes(data.status)) {
+      throw new InvalidStatusError(data.status, validStatuses);
+    }
+
+    const stock = changes.stock ?? current.stock;
+    const status = changes.status ?? resolveStatus(stock, current.status);
+    return this.productRepository.update(id, { ...changes, stock, status });
   }
 
   async delete(id) {

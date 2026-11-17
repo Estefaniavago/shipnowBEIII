@@ -40,6 +40,7 @@ Si falta `PORT`, `MONGODB_URI` o `NODE_ENV`, la app **no arranca** y muestra un 
 | GET | `/api/users` | Lista usuarios (sin password) |
 | GET / PUT / DELETE | `/api/users/:id` | Detalle / actualizar / eliminar |
 | POST | `/api/users` | Crear usuario (password hasheado) |
+| GET | `/api/orders`, `/api/orders/:id` | Lista / detalle de pedidos |
 | GET / POST / DELETE | `/api/mocks/...` | Mocking y datos de prueba (ver sección siguiente) |
 
 ## Mocking y datos de prueba (`/api/mocks`)
@@ -111,19 +112,94 @@ Los usuarios de prueba se guardan con el password `Test1234` (hasheado) y el dom
 - **Generador** (`utils/mock.generator.js`): funciones puras que fabrican cada entidad con las constantes (sin base de datos).
 - **Repositories**: únicos que usan Mongoose (`insertMany`, búsqueda de ids por rol y borrado de mocks).
 
+## Manejo de errores
+
+Todos los errores pasan por una capa común. Cada capa tiene su rol:
+
+- **Service**: detecta el problema y lanza un error de dominio (por ejemplo `UserNotFoundError`, `NegativeValueError`, `InvalidMockQuantityError`).
+- **Controller**: no responde errores. Está envuelto en `asyncHandler`, que deriva cualquier excepción al middleware.
+- **Middleware global** (`error.middleware.js`): es el **único** lugar que arma la respuesta de error. También traduce errores externos (JSON roto, `CastError`, clave duplicada, caída de MongoDB) al mismo formato.
+- **Diccionario** (`src/errors/error.dictionary.js`): define el status HTTP y el mensaje de cada código en un solo lugar.
+
+### Estructura de la respuesta de error
+
+Todos los errores, sin excepción, responden así:
+
+```json
+{
+  "status": "error",
+  "code": "MOCK_QTY_NEGATIVE",
+  "message": "qty no puede ser negativa",
+  "details": [{ "field": "qty", "value": "-5" }],
+  "path": "/api/mocks/users?qty=-5",
+  "timestamp": "2026-11-17T15:30:00.000Z"
+}
+```
+
+`details` es siempre un array (puede estar vacío). En errores 5xx el mensaje es genérico; fuera de producción se agrega la causa técnica en `details` para facilitar el debug.
+
+### Códigos de error
+
+| Código | HTTP | Cuándo |
+|---|---|---|
+| `VALIDATION_ERROR` | 400 | Datos con formato inválido (por ejemplo `price: "abc"`, `page=0`) |
+| `MISSING_FIELDS` | 400 | Faltan campos obligatorios |
+| `INVALID_ID` | 400 | El id no tiene formato de ObjectId |
+| `INVALID_JSON` | 400 | El body no es un JSON válido |
+| `NEGATIVE_VALUE` | 400 | Precio o stock negativo |
+| `INVALID_STATUS` / `INVALID_ROLE` | 400 | Estado o rol fuera de las constantes |
+| `USER_NOT_FOUND` / `PRODUCT_NOT_FOUND` / `ORDER_NOT_FOUND` | 404 | El recurso no existe |
+| `ROUTE_NOT_FOUND` | 404 | La ruta no existe |
+| `EMAIL_ALREADY_EXISTS` / `DUPLICATE_KEY` | 409 | Dato único repetido |
+| `MOCK_QTY_INVALID` | 400 | `qty` no es un entero mayor a 0 (`abc`, `1.5`, `0`) |
+| `MOCK_QTY_NEGATIVE` | 400 | `qty` negativa |
+| `MOCK_QTY_OUT_OF_RANGE` | 400 | `qty` mayor a 100 |
+| `MOCK_TYPE_INVALID` | 400 | `type` de seed inválido |
+| `MOCK_DEPENDENCY_MISSING` | 409 | Falta sembrar datos previos (por ejemplo pedidos sin usuarios) |
+| `MOCK_SEED_FAILED` | 500 | Falló la inserción en MongoDB (informa qué se alcanzó a insertar) |
+| `DATABASE_ERROR` | 503 | MongoDB no disponible |
+| `INTERNAL_ERROR` | 500 | Error inesperado |
+
+### Cómo probar los casos inválidos
+
+Con la API corriendo (`npm run dev`), en Postman o con `curl`:
+
+| Caso | Petición | Respuesta esperada |
+|---|---|---|
+| Usuario inexistente | `GET /api/users/aaaaaaaaaaaaaaaaaaaaaaaa` | 404 `USER_NOT_FOUND` |
+| Pedido inexistente | `GET /api/orders/aaaaaaaaaaaaaaaaaaaaaaaa` | 404 `ORDER_NOT_FOUND` |
+| Id con formato inválido | `GET /api/products/123` | 400 `INVALID_ID` |
+| Ruta inexistente | `GET /api/cosas` | 404 `ROUTE_NOT_FOUND` |
+| Faltan campos | `POST /api/products` con body `{}` | 400 `MISSING_FIELDS` |
+| Valor negativo | `POST /api/products` con `{"name":"X","price":-5}` | 400 `NEGATIVE_VALUE` |
+| Estado inválido | `PUT /api/products/:id` con `{"status":"ROTO"}` | 400 `INVALID_STATUS` |
+| Rol inválido | `POST /api/users` con `"role":"HACKER"` | 400 `INVALID_ROLE` |
+| Email repetido | `POST /api/users` dos veces con el mismo email | 409 `EMAIL_ALREADY_EXISTS` |
+| JSON roto | `POST /api/products` con body `{"name":` | 400 `INVALID_JSON` |
+| Paginación inválida | `GET /api/products?page=0` | 400 `VALIDATION_ERROR` |
+| Mock: qty inválida | `GET /api/mocks/users?qty=abc` | 400 `MOCK_QTY_INVALID` |
+| Mock: qty negativa | `GET /api/mocks/users?qty=-5` | 400 `MOCK_QTY_NEGATIVE` |
+| Mock: qty excedida | `GET /api/mocks/orders?qty=500` | 400 `MOCK_QTY_OUT_OF_RANGE` |
+| Mock: type inválido | `POST /api/mocks/seed?qty=5&type=cosas` | 400 `MOCK_TYPE_INVALID` |
+| Mock: falta dependencia | `POST /api/mocks/seed?type=orders` con la base sin usuarios | 409 `MOCK_DEPENDENCY_MISSING` |
+| Mock: falla en MongoDB | Cortar la conexión a MongoDB (por ejemplo detener el servicio) y hacer `POST /api/mocks/seed?qty=5` | 500 `MOCK_SEED_FAILED` o 503 `DATABASE_ERROR` |
+
+Los tests automáticos (`npm test`) cubren el diccionario, los errores de dominio, el normalizador, el middleware y las validaciones de products y mocks, incluida la falla de inserción simulada.
+
 ## Estructura
 
 ```
 src/
 ├── config/        env.config.js (validación), index.js (re-export), db.config.js
 ├── constants/     USER_ROLES, PRODUCT_STATUS, NODE_ENVS, RESPONSE_STATUS (Object.freeze)
-├── controllers/   Solo req/res y status codes
+├── errors/        Diccionario de errores, AppError, errores de dominio y normalizador
+├── controllers/   Solo req/res y status codes (errores: se derivan con asyncHandler)
 ├── services/      Lógica de negocio (reciben el repository por constructor; index.js los cablea)
 ├── repositories/  Único lugar que usa Mongoose para consultas
 ├── models/        Solo esquemas
 ├── routes/        Solo conectan path -> método del controller
-├── middlewares/   Manejo de errores
-└── utils/         AppError, mock.generator.js (generador puro de datos simulados)
+├── middlewares/   error.middleware.js (único que responde errores), not-found.middleware.js
+└── utils/         validators.js, async.handler.js, mock.generator.js (generador puro de datos simulados)
 test/              Tests de services con un repository falso
 ```
 

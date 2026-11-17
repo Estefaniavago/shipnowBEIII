@@ -1,48 +1,28 @@
 import { userService } from '../services/index.js';
-import { RESPONSE_STATUS } from '../constants/index.js';
+import { HTTP_STATUS, RESPONSE_STATUS } from '../constants/index.js';
+import { asyncHandler } from '../utils/async.handler.js';
 
-export const getAll = async (req, res, next) => {
-  try {
-    const { page, limit } = req.query;
-    const users = await userService.getAll({
-      page: page ? Number(page) : undefined,
-      limit: limit ? Number(limit) : undefined,
-    });
-    res.status(200).json({ status: RESPONSE_STATUS.SUCCESS, payload: users });
-  } catch (error) {
-    next(error);
-  }
-};
+const ok = (res, statusCode, payload) =>
+  res.status(statusCode).json({ status: RESPONSE_STATUS.SUCCESS, payload });
 
-export const getById = async (req, res, next) => {
-  try {
-    res.status(200).json({ status: RESPONSE_STATUS.SUCCESS, payload: await userService.getById(req.params.id) });
-  } catch (error) {
-    next(error);
-  }
-};
+export const getAll = asyncHandler(async (req, res) => {
+  const { page, limit } = req.query;
+  ok(res, HTTP_STATUS.OK, await userService.getAll({ page, limit }));
+});
 
-export const create = async (req, res, next) => {
-  try {
-    res.status(201).json({ status: RESPONSE_STATUS.SUCCESS, payload: await userService.create(req.body) });
-  } catch (error) {
-    next(error);
-  }
-};
+export const getById = asyncHandler(async (req, res) => {
+  ok(res, HTTP_STATUS.OK, await userService.getById(req.params.id));
+});
 
-export const update = async (req, res, next) => {
-  try {
-    res.status(200).json({ status: RESPONSE_STATUS.SUCCESS, payload: await userService.update(req.params.id, req.body) });
-  } catch (error) {
-    next(error);
-  }
-};
+export const create = asyncHandler(async (req, res) => {
+  ok(res, HTTP_STATUS.CREATED, await userService.create(req.body));
+});
 
-export const remove = async (req, res, next) => {
-  try {
-    await userService.delete(req.params.id);
-    res.status(204).send();
-  } catch (error) {
-    next(error);
-  }
-};
+export const update = asyncHandler(async (req, res) => {
+  ok(res, HTTP_STATUS.OK, await userService.update(req.params.id, req.body));
+});
+
+export const remove = asyncHandler(async (req, res) => {
+  await userService.delete(req.params.id);
+  res.status(HTTP_STATUS.NO_CONTENT).send();
+});

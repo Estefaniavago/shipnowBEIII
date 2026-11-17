@@ -5,7 +5,13 @@ import {
   MOCK_TYPES,
   MOCK_COLLECTIONS,
 } from '../constants/index.js';
-import { AppError } from '../utils/AppError.js';
+import {
+  InvalidMockQuantityError,
+  InvalidMockTypeError,
+  MockDependencyMissingError,
+  MockSeedError,
+  QTY_REASONS,
+} from '../errors/index.js';
 import {
   generateUsers,
   generateOrder,
@@ -59,20 +65,21 @@ export class MockService {
   // ---------- Carga en la base ----------
 
   async seed({ qty, type = MOCK_TYPES.USERS } = {}) {
+    // Se valida todo antes de tocar la base.
+    this.#assertValidType(type);
     const amount = this.#parseQty(qty);
+    const inserted = {};
     switch (type) {
       case MOCK_TYPES.USERS:
-        return this.#result(type, await this.#seedUsers(amount, USER_ROLES.USER));
+        return this.#result(type, await this.#seedUsers(amount, USER_ROLES.USER, type, inserted));
       case MOCK_TYPES.COURIERS:
-        return this.#result(type, await this.#seedUsers(amount, USER_ROLES.COURIER));
+        return this.#result(type, await this.#seedUsers(amount, USER_ROLES.COURIER, type, inserted));
       case MOCK_TYPES.ORDERS:
-        return this.#result(type, await this.#seedOrders(amount));
+        return this.#result(type, await this.#seedOrders(amount, inserted));
       case MOCK_TYPES.DELIVERIES:
-        return this.#result(type, await this.#seedDeliveries(amount));
-      case MOCK_TYPES.ALL:
-        return this.#seedAll(amount);
+        return this.#result(type, await this.#seedDeliveries(amount, inserted));
       default:
-        throw new AppError(`type inválido. Permitidos: ${Object.values(MOCK_TYPES).join(', ')}`, 400);
+        return this.#seedAll(amount, inserted);
     }
   }
 
@@ -94,10 +101,29 @@ export class MockService {
   #parseQty(raw) {
     if (raw === undefined || raw === '') return MOCK.DEFAULT_QTY;
     const qty = Number(raw);
-    if (!Number.isInteger(qty) || qty < 1 || qty > MOCK.MAX_QTY) {
-      throw new AppError(`qty debe ser un entero entre 1 y ${MOCK.MAX_QTY}`, 400);
+    if (raw === null || !Number.isFinite(qty)) throw new InvalidMockQuantityError(QTY_REASONS.invalid, raw);
+    if (qty < 0) throw new InvalidMockQuantityError(QTY_REASONS.negative, raw);
+    if (!Number.isInteger(qty) || qty === 0) throw new InvalidMockQuantityError(QTY_REASONS.invalid, raw);
+    if (qty > MOCK.MAX_QTY) {
+      throw new InvalidMockQuantityError(QTY_REASONS.outOfRange, raw, { max: MOCK.MAX_QTY });
     }
     return qty;
+  }
+
+  #assertValidType(type) {
+    const allowed = Object.values(MOCK_TYPES);
+    if (!allowed.includes(type)) throw new InvalidMockTypeError(type, allowed);
+  }
+
+  // Inserta y, si MongoDB falla, informa qué se alcanzó a guardar antes del error.
+  async #insert(repository, docs, type, inserted) {
+    try {
+      const count = await repository.insertMany(docs);
+      inserted[MOCK_COLLECTIONS[type]] = count;
+      return count;
+    } catch (error) {
+      throw new MockSeedError(MOCK_COLLECTIONS[type], { ...inserted }, error);
+    }
   }
 
   #result(type, insertados) {
@@ -120,52 +146,47 @@ export class MockService {
     return users.map((user) => ({ ...user, password }));
   }
 
-  async #seedUsers(qty, role) {
+  async #seedUsers(qty, role, type, inserted) {
     const users = await this.#withPassword(generateUsers(qty, { role }));
-    return this.userRepository.insertMany(users);
+    return this.#insert(this.userRepository, users, type, inserted);
   }
 
-  async #seedOrders(qty) {
+  async #seedOrders(qty, inserted) {
     const customerIds = await this.userRepository.getIdsByRole(USER_ROLES.USER, MOCK.MAX_QTY);
     if (customerIds.length === 0) {
-      throw new AppError('No hay usuarios con rol USER. Sembrá type=users primero o usá type=all', 409);
+      throw new MockDependencyMissingError('usuarios con rol USER', 'Sembrá type=users primero o usá type=all');
     }
     const orders = Array.from({ length: qty }, () => generateOrder({ customerId: pick(customerIds) }));
-    return this.orderRepository.insertMany(orders);
+    return this.#insert(this.orderRepository, orders, MOCK_TYPES.ORDERS, inserted);
   }
 
-  async #seedDeliveries(qty) {
+  async #seedDeliveries(qty, inserted) {
     const candidates = await this.orderRepository.getByStatuses(DELIVERY_ORDER_STATUSES, MOCK.MAX_QTY);
     const alreadyAssigned = new Set(
       await this.deliveryRepository.getOrderIdsWithDelivery(candidates.map((o) => o._id))
     );
     const orders = candidates.filter((o) => !alreadyAssigned.has(o._id)).slice(0, qty);
     if (orders.length === 0) {
-      throw new AppError('No hay pedidos sin entrega. Sembrá type=orders primero o usá type=all', 409);
+      throw new MockDependencyMissingError('pedidos sin entrega', 'Sembrá type=orders primero o usá type=all');
     }
     const courierIds = await this.userRepository.getIdsByRole(USER_ROLES.COURIER, MOCK.MAX_QTY);
     if (courierIds.length === 0) {
-      throw new AppError('No hay repartidores. Sembrá type=couriers primero o usá type=all', 409);
+      throw new MockDependencyMissingError('repartidores', 'Sembrá type=couriers primero o usá type=all');
     }
     const deliveries = orders.map((order) => generateDelivery({ order, courierId: pick(courierIds) }));
-    return this.deliveryRepository.insertMany(deliveries);
+    return this.#insert(this.deliveryRepository, deliveries, MOCK_TYPES.DELIVERIES, inserted);
   }
 
-  async #seedAll(qty) {
+  async #seedAll(qty, inserted) {
     const { users, couriers, orders, deliveries } = this.#buildDataset(qty);
-    const insertedUsers = await this.userRepository.insertMany(await this.#withPassword(users));
-    const insertedCouriers = await this.userRepository.insertMany(await this.#withPassword(couriers));
-    const insertedOrders = await this.orderRepository.insertMany(orders);
-    const insertedDeliveries = await this.deliveryRepository.insertMany(deliveries);
+    const u = await this.#insert(this.userRepository, await this.#withPassword(users), MOCK_TYPES.USERS, inserted);
+    const c = await this.#insert(this.userRepository, await this.#withPassword(couriers), MOCK_TYPES.COURIERS, inserted);
+    const o = await this.#insert(this.orderRepository, orders, MOCK_TYPES.ORDERS, inserted);
+    const d = await this.#insert(this.deliveryRepository, deliveries, MOCK_TYPES.DELIVERIES, inserted);
     return {
-      insertados: insertedUsers + insertedCouriers + insertedOrders + insertedDeliveries,
+      insertados: u + c + o + d,
       coleccion: MOCK_COLLECTIONS[MOCK_TYPES.ALL],
-      detalle: {
-        [MOCK_COLLECTIONS[MOCK_TYPES.USERS]]: insertedUsers,
-        [MOCK_COLLECTIONS[MOCK_TYPES.COURIERS]]: insertedCouriers,
-        [MOCK_COLLECTIONS[MOCK_TYPES.ORDERS]]: insertedOrders,
-        [MOCK_COLLECTIONS[MOCK_TYPES.DELIVERIES]]: insertedDeliveries,
-      },
+      detalle: { ...inserted },
     };
   }
 }

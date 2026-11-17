@@ -1,9 +1,7 @@
-import mongoose from 'mongoose';
 import { UserModel } from '../models/user.model.js';
 
 // Por defecto NUNCA se devuelve el hash del password.
 const PUBLIC_PROJECTION = '-password -__v';
-const isValidId = (id) => mongoose.isValidObjectId(id);
 
 class UserRepository {
   async getAll({ page = 1, limit = 20 } = {}) {
@@ -15,7 +13,6 @@ class UserRepository {
   }
 
   async getById(id) {
-    if (!isValidId(id)) return null;
     return UserModel.findById(id, PUBLIC_PROJECTION).lean();
   }
 
@@ -51,7 +48,6 @@ class UserRepository {
   }
 
   async update(id, data) {
-    if (!isValidId(id)) return null;
     return UserModel.findByIdAndUpdate(id, data, {
       new: true,
       runValidators: true,
@@ -60,7 +56,6 @@ class UserRepository {
   }
 
   async delete(id) {
-    if (!isValidId(id)) return null;
     return UserModel.findByIdAndDelete(id, { projection: PUBLIC_PROJECTION }).lean();
   }
 }

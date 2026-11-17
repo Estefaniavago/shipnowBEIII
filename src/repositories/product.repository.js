@@ -1,10 +1,8 @@
-import mongoose from 'mongoose';
 import { ProductModel } from '../models/product.model.js';
 import { PRODUCT_STATUS } from '../constants/index.js';
 
 // Proyección por defecto: ocultamos campos internos de Mongo.
 const DEFAULT_PROJECTION = '-__v';
-const isValidId = (id) => mongoose.isValidObjectId(id);
 
 class ProductRepository {
   // Por defecto nunca devuelve productos DISCONTINUED.
@@ -18,7 +16,6 @@ class ProductRepository {
   }
 
   async getById(id) {
-    if (!isValidId(id)) return null;
     return ProductModel.findById(id, DEFAULT_PROJECTION).lean();
   }
 
@@ -28,7 +25,6 @@ class ProductRepository {
   }
 
   async update(id, data) {
-    if (!isValidId(id)) return null;
     return ProductModel.findByIdAndUpdate(id, data, {
       new: true,
       runValidators: true,
@@ -37,7 +33,6 @@ class ProductRepository {
   }
 
   async delete(id) {
-    if (!isValidId(id)) return null;
     return ProductModel.findByIdAndDelete(id).lean();
   }
 }

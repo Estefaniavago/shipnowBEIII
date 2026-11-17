@@ -6,6 +6,18 @@ class OrderRepository {
     return inserted.length;
   }
 
+  async getAll({ page = 1, limit = 20 } = {}) {
+    return OrderModel.find({}, '-__v')
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean();
+  }
+
+  async getById(id) {
+    return OrderModel.findById(id, '-__v').lean();
+  }
+
   // Pedidos más recientes en alguno de los estados indicados (solo id y estado).
   async getByStatuses(statuses, limit = 100) {
     const orders = await OrderModel.find({ status: { $in: statuses } }, 'status')
