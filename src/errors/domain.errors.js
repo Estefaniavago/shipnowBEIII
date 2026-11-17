@@ -50,6 +50,15 @@ export class InvalidRoleError extends AppError {
   }
 }
 
+export class InvalidPriorityError extends AppError {
+  constructor(priority, allowed) {
+    super(ERROR_CODES.INVALID_PRIORITY, {
+      message: `Prioridad inválida: ${priority}. Permitidas: ${allowed.join(', ')}`,
+      details: [{ field: 'priority', value: priority, allowed }],
+    });
+  }
+}
+
 // ---------- No encontrado ----------
 export class UserNotFoundError extends AppError {
   constructor(id) {

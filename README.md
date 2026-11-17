@@ -17,6 +17,7 @@ API REST de ShipNow con arquitectura por capas **Controller → Service → Repo
    PORT=3000
    MONGODB_URI=mongodb://localhost:27017/shipnow
    NODE_ENV=development
+   # LOG_LEVEL=   (opcional, ver sección Logging)
    ```
 4. Iniciar:
    ```bash
@@ -40,7 +41,9 @@ Si falta `PORT`, `MONGODB_URI` o `NODE_ENV`, la app **no arranca** y muestra un 
 | GET | `/api/users` | Lista usuarios (sin password) |
 | GET / PUT / DELETE | `/api/users/:id` | Detalle / actualizar / eliminar |
 | POST | `/api/users` | Crear usuario (password hasheado) |
-| GET | `/api/orders`, `/api/orders/:id` | Lista / detalle de pedidos |
+| GET / POST | `/api/orders` | Lista pedidos / crear pedido (`customer`, `items`, `shippingAddress`, `priority` opcional) |
+| GET | `/api/orders/:id` | Detalle de pedido |
+| GET | `/api/logger/test` | Endpoint interno para probar el logger (emite un log por nivel) |
 | GET / POST / DELETE | `/api/mocks/...` | Mocking y datos de prueba (ver sección siguiente) |
 
 ## Mocking y datos de prueba (`/api/mocks`)
@@ -121,7 +124,79 @@ Todos los errores pasan por una capa común. Cada capa tiene su rol:
 - **Middleware global** (`error.middleware.js`): es el **único** lugar que arma la respuesta de error. También traduce errores externos (JSON roto, `CastError`, clave duplicada, caída de MongoDB) al mismo formato.
 - **Diccionario** (`src/errors/error.dictionary.js`): define el status HTTP y el mensaje de cada código en un solo lugar.
 
-### Estructura de la respuesta de error
+### Logging y monitoreo
+
+Se usa **Winston** (con `winston-daily-rotate-file` para la rotación). Hay un único logger centralizado (`src/config/logger.js`) que se inyecta en los services y middlewares; no quedan `console.log` en el código.
+
+Formato de cada línea (consola y archivos): `fecha hora [nivel] mensaje {metadata}`
+
+```
+2026-11-17 10:12:03 [info]    Servidor ShipNow escuchando en el puerto 3000 (development)
+2026-11-17 10:12:03 [info]    Conexión a MongoDB establecida
+2026-11-17 10:14:21 [warning] Usuario no encontrado {"code":"USER_NOT_FOUND","method":"GET","path":"/api/users/aaaa..."}
+2026-11-17 10:15:09 [error]   Falló la carga de datos de prueba en la colección pedidos {"code":"MOCK_SEED_FAILED",...}
+```
+
+### Niveles
+
+De más a menos severo (definidos en `src/constants/index.js`):
+
+| Nivel | Se usa para |
+|---|---|
+| `fatal` | La app no puede seguir: configuración inválida, falla de conexión inicial a MongoDB, puerto ocupado, excepciones no capturadas |
+| `error` | Errores inesperados del servidor (5xx): fallas de MongoDB, bugs, `MOCK_SEED_FAILED` |
+| `warning` | Errores esperados o de negocio (4xx): recurso no encontrado, datos inválidos, ruta inexistente, `qty` inválida en mocks, pérdida de conexión a MongoDB |
+| `info` | Eventos importantes: servidor iniciado, MongoDB conectado, pedido/producto/usuario creado o modificado, seed de mocks |
+| `http` | Cada petición HTTP: método, url, status y duración |
+| `debug` | Detalle para desarrollo: conexión a MongoDB, generación de datos simulados |
+
+### Comportamiento según el entorno
+
+| `NODE_ENV` | Nivel mínimo | Consola | Archivos |
+|---|---|---|---|
+| `development` | `debug` (todo) | Con colores | Sí |
+| `production` | `info` (sin `http` ni `debug`) | Sin colores | Sí |
+| `test` | `fatal` | Silenciosa | No |
+
+Opcionalmente, `LOG_LEVEL` en el `.env` fuerza otro nivel (por ejemplo `LOG_LEVEL=warning`). Si se deja vacío, manda `NODE_ENV`.
+
+### Dónde se guardan los logs
+
+En la carpeta `logs/` (se crea sola al arrancar):
+
+| Archivo | Contenido |
+|---|---|
+| `logs/combined-AAAA-MM-DD.log` | Todos los niveles desde el nivel activo del entorno |
+| `logs/error-AAAA-MM-DD.log` | **Solo `error` y `fatal`** |
+
+**Rotación:** se crea un archivo nuevo por día, o antes si supera los 20 MB. Los archivos viejos se comprimen (`.gz`) y se conservan 14 días; los más antiguos se borran solos.
+
+**Git:** `logs/*` está en el `.gitignore`, así que los archivos generados no se suben. La carpeta se conserva en el repo con un `logs/.gitkeep`.
+
+### Cómo probar el endpoint del logger
+
+1. Arrancá la API con `npm run dev` (`NODE_ENV=development`).
+2. Pedí `GET http://localhost:3000/api/logger/test`.
+3. Respuesta esperada: `200` con los niveles emitidos y el nivel activo.
+4. En la consola vas a ver una línea por cada nivel (`debug`, `http`, `info`, `warning`, `error`, `fatal`) más la línea `http` de la propia petición.
+5. Abrí `logs/combined-<fecha>.log`: están todos los niveles. Abrí `logs/error-<fecha>.log`: **solo** `error` y `fatal`.
+6. Cambiá a `NODE_ENV=production`, reiniciá y repetí: ya no aparecen `debug` ni `http`.
+
+Otras pruebas útiles:
+
+| Acción | Log esperado |
+|---|---|
+| `GET /api/mocks/users?qty=-5` | `warning` con `MOCK_QTY_NEGATIVE` |
+| `GET /api/orders/aaaaaaaaaaaaaaaaaaaaaaaa` | `warning` con `ORDER_NOT_FOUND` |
+| `GET /api/cosas` | `warning` con `ROUTE_NOT_FOUND` |
+| `POST /api/orders` con datos válidos | `info` "Pedido creado: ..." |
+| `POST /api/mocks/seed?qty=5` | `info` "Seed de mocks (users): 5 documentos..." |
+| Quitar `MONGODB_URI` del `.env` y arrancar | `fatal` y la app no inicia (queda también en `error-<fecha>.log`) |
+| Usar una URI de MongoDB inalcanzable | `fatal` "No se pudo conectar a MongoDB" y la app termina |
+
+> El endpoint `/api/logger/test` es una herramienta interna de verificación. En un sistema real conviene deshabilitarlo o protegerlo en producción.
+
+## Estructura de la respuesta de error
 
 Todos los errores, sin excepción, responden así:
 
@@ -190,7 +265,8 @@ Los tests automáticos (`npm test`) cubren el diccionario, los errores de domini
 
 ```
 src/
-├── config/        env.config.js (validación), index.js (re-export), db.config.js
+├── config/        env.config.js (validación), index.js (re-export), db.config.js,
+│                  logger.factory.js (arma Winston), logger.js (instancia única)
 ├── constants/     USER_ROLES, PRODUCT_STATUS, NODE_ENVS, RESPONSE_STATUS (Object.freeze)
 ├── errors/        Diccionario de errores, AppError, errores de dominio y normalizador
 ├── controllers/   Solo req/res y status codes (errores: se derivan con asyncHandler)
@@ -199,7 +275,8 @@ src/
 ├── models/        Solo esquemas
 ├── routes/        Solo conectan path -> método del controller
 ├── middlewares/   error.middleware.js (único que responde errores), not-found.middleware.js
-└── utils/         validators.js, async.handler.js, mock.generator.js (generador puro de datos simulados)
+logs/              Archivos de log generados (ignorados por Git, salvo .gitkeep)
+└── utils/         log.format.js, noop.logger.js, shutdown.js, validators.js, async.handler.js, mock.generator.js (generador puro de datos simulados)
 test/              Tests de services con un repository falso
 ```
 

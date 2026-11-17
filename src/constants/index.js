@@ -85,3 +85,38 @@ export const HTTP_STATUS = Object.freeze({
   INTERNAL_SERVER_ERROR: 500,
   SERVICE_UNAVAILABLE: 503,
 });
+
+// Niveles de log (de más a menos severo).
+export const LOG_LEVELS = Object.freeze({
+  FATAL: 'fatal',
+  ERROR: 'error',
+  WARNING: 'warning',
+  INFO: 'info',
+  HTTP: 'http',
+  DEBUG: 'debug',
+});
+
+// Prioridad numérica de Winston: menor número = más severo.
+export const LOG_PRIORITIES = Object.freeze({
+  [LOG_LEVELS.FATAL]: 0,
+  [LOG_LEVELS.ERROR]: 1,
+  [LOG_LEVELS.WARNING]: 2,
+  [LOG_LEVELS.INFO]: 3,
+  [LOG_LEVELS.HTTP]: 4,
+  [LOG_LEVELS.DEBUG]: 5,
+});
+
+// Nivel mínimo que se registra según el entorno.
+export const LOG_LEVEL_BY_ENV = Object.freeze({
+  [NODE_ENVS.DEVELOPMENT]: LOG_LEVELS.DEBUG,
+  [NODE_ENVS.PRODUCTION]: LOG_LEVELS.INFO,
+  [NODE_ENVS.TEST]: LOG_LEVELS.FATAL,
+});
+
+export const LOG_DEFAULTS = Object.freeze({
+  DIR: 'logs',
+  DATE_PATTERN: 'YYYY-MM-DD',
+  MAX_SIZE: '20m',
+  MAX_FILES: '14d',
+  TIMESTAMP_FORMAT: 'YYYY-MM-DD HH:mm:ss',
+});

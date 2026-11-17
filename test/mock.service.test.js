@@ -174,3 +174,15 @@ test('clear: borra solo mocks y informa cantidades', async () => {
   const { service } = makeService();
   assert.deepEqual(await service.clear(), { eliminados: { entregas: 1, pedidos: 2, usuarios: 3 } });
 });
+
+test('logging: seed exitoso registra info; seed rechazado no registra nada', async () => {
+  const calls = [];
+  const logger = { info: (msg, meta) => calls.push([msg, meta]), debug: () => {} };
+  const { service } = makeService();
+  service.logger = logger;
+  await service.seed({ qty: 4 });
+  assert.equal(calls.length, 1);
+  assert.match(calls[0][0], /^Seed de mocks \(users\): 4 documentos insertados en usuarios$/);
+  await assert.rejects(() => service.seed({ qty: -1 }));
+  assert.equal(calls.length, 1);
+});

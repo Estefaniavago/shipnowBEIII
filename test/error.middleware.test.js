@@ -4,6 +4,7 @@ import { createErrorHandler } from '../src/middlewares/error.middleware.js';
 import { notFoundHandler } from '../src/middlewares/not-found.middleware.js';
 import { asyncHandler } from '../src/utils/async.handler.js';
 import { UserNotFoundError, ERROR_CODES } from '../src/errors/index.js';
+import { LOG_LEVELS } from '../src/constants/index.js';
 
 function fakeRes() {
   return {
@@ -19,8 +20,18 @@ function fakeRes() {
     },
   };
 }
-const req = { originalUrl: '/api/users/123' };
-const silentLogger = { calls: [], error(...args) { this.calls.push(args); } };
+const req = { method: 'GET', originalUrl: '/api/users/123' };
+
+// Logger falso que registra cada llamada: [nivel, mensaje, meta]
+function makeLogger() {
+  const calls = [];
+  const logger = { calls };
+  for (const level of Object.values(LOG_LEVELS)) {
+    logger[level] = (message, meta) => calls.push([level, message, meta]);
+  }
+  return logger;
+}
+const silentLogger = makeLogger();
 
 test('middleware: AppError => estructura uniforme', () => {
   const res = fakeRes();
@@ -35,13 +46,14 @@ test('middleware: AppError => estructura uniforme', () => {
 });
 
 test('middleware: error desconocido => 500 genérico, loguea y no filtra la causa en producción', () => {
-  const logger = { calls: [], error(...a) { this.calls.push(a); } };
+  const logger = makeLogger();
   const res = fakeRes();
   createErrorHandler({ isProduction: true, logger })(new Error('password=secreto'), req, res, () => {});
   assert.equal(res.statusCode, 500);
   assert.equal(res.body.code, ERROR_CODES.INTERNAL_ERROR);
   assert.ok(!JSON.stringify(res.body).includes('secreto'));
   assert.equal(logger.calls.length, 1);
+  assert.equal(logger.calls[0][0], LOG_LEVELS.ERROR);
 });
 
 test('middleware: fuera de producción incluye la causa técnica en details', () => {
@@ -50,10 +62,35 @@ test('middleware: fuera de producción incluye la causa técnica en details', ()
   assert.deepEqual(res.body.details, [{ cause: 'falló X' }]);
 });
 
-test('middleware: errores 4xx no se loguean como error de servidor', () => {
-  const logger = { calls: [], error(...a) { this.calls.push(a); } };
+test('logging: errores esperados (4xx) => warning con código, método y ruta', () => {
+  const logger = makeLogger();
   createErrorHandler({ logger })(new UserNotFoundError('x'), req, fakeRes(), () => {});
-  assert.equal(logger.calls.length, 0);
+  assert.equal(logger.calls.length, 1);
+  const [level, message, meta] = logger.calls[0];
+  assert.equal(level, LOG_LEVELS.WARNING);
+  assert.equal(message, 'Usuario no encontrado');
+  assert.equal(meta.code, ERROR_CODES.USER_NOT_FOUND);
+  assert.equal(meta.method, 'GET');
+  assert.equal(meta.path, '/api/users/123');
+});
+
+test('logging: errores inesperados (5xx) => error con stack de la causa', () => {
+  const logger = makeLogger();
+  const cause = new Error('se rompió algo');
+  createErrorHandler({ logger })(cause, req, fakeRes(), () => {});
+  const [level, , meta] = logger.calls[0];
+  assert.equal(level, LOG_LEVELS.ERROR);
+  assert.equal(meta.code, ERROR_CODES.INTERNAL_ERROR);
+  assert.ok(meta.stack.includes('se rompió algo'));
+});
+
+test('logging: la respuesta al cliente es la misma haya o no logger', () => {
+  const withLogger = fakeRes();
+  const withoutLogger = fakeRes();
+  createErrorHandler({ logger: makeLogger() })(new UserNotFoundError('x'), req, withLogger, () => {});
+  createErrorHandler()(new UserNotFoundError('x'), req, withoutLogger, () => {});
+  assert.equal(withLogger.statusCode, withoutLogger.statusCode);
+  assert.equal(withLogger.body.code, withoutLogger.body.code);
 });
 
 test('notFoundHandler: deriva un ROUTE_NOT_FOUND al middleware global', () => {

@@ -2,13 +2,18 @@ import { orderService } from '../services/index.js';
 import { HTTP_STATUS, RESPONSE_STATUS } from '../constants/index.js';
 import { asyncHandler } from '../utils/async.handler.js';
 
+const ok = (res, statusCode, payload) =>
+  res.status(statusCode).json({ status: RESPONSE_STATUS.SUCCESS, payload });
+
 export const getAll = asyncHandler(async (req, res) => {
   const { page, limit } = req.query;
-  const orders = await orderService.getAll({ page, limit });
-  res.status(HTTP_STATUS.OK).json({ status: RESPONSE_STATUS.SUCCESS, payload: orders });
+  ok(res, HTTP_STATUS.OK, await orderService.getAll({ page, limit }));
 });
 
 export const getById = asyncHandler(async (req, res) => {
-  const order = await orderService.getById(req.params.id);
-  res.status(HTTP_STATUS.OK).json({ status: RESPONSE_STATUS.SUCCESS, payload: order });
+  ok(res, HTTP_STATUS.OK, await orderService.getById(req.params.id));
+});
+
+export const create = asyncHandler(async (req, res) => {
+  ok(res, HTTP_STATUS.CREATED, await orderService.create(req.body));
 });

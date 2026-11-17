@@ -4,6 +4,7 @@ import {
   MissingFieldsError,
   InvalidStatusError,
 } from '../errors/index.js';
+import { noopLogger } from '../utils/noop.logger.js';
 import {
   assertValidId,
   assertNonNegative,
@@ -19,8 +20,9 @@ function resolveStatus(stock, currentStatus) {
 }
 
 export class ProductService {
-  constructor(productRepository) {
+  constructor(productRepository, logger = noopLogger) {
     this.productRepository = productRepository;
+    this.logger = logger;
   }
 
   async getAll({ includeOutOfStock = false, page, limit } = {}) {
@@ -45,12 +47,14 @@ export class ProductService {
     assertNonNegative('price', price);
     assertNonNegative('stock', stock);
 
-    return this.productRepository.create({
+    const product = await this.productRepository.create({
       ...data,
       price,
       stock,
       status: resolveStatus(stock, undefined),
     });
+    this.logger.info(`Producto creado: ${product._id} (stock ${stock}, estado ${product.status})`);
+    return product;
   }
 
   async update(id, data = {}) {
@@ -72,11 +76,15 @@ export class ProductService {
 
     const stock = changes.stock ?? current.stock;
     const status = changes.status ?? resolveStatus(stock, current.status);
-    return this.productRepository.update(id, { ...changes, stock, status });
+    const updated = await this.productRepository.update(id, { ...changes, stock, status });
+    this.logger.info(`Producto actualizado: ${id} (estado ${status})`);
+    return updated;
   }
 
   async delete(id) {
     await this.getById(id);
-    return this.productRepository.delete(id);
+    const deleted = await this.productRepository.delete(id);
+    this.logger.info(`Producto eliminado: ${id}`);
+    return deleted;
   }
 }

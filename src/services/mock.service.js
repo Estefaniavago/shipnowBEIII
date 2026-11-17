@@ -20,10 +20,13 @@ import {
   pick,
 } from '../utils/mock.generator.js';
 
+import { noopLogger } from '../utils/noop.logger.js';
+
 const DELIVERY_ORDER_STATUSES = Object.keys(ORDER_TO_DELIVERY_STATUS);
 
 export class MockService {
-  constructor({ userRepository, orderRepository, deliveryRepository, hashPassword }) {
+  constructor({ userRepository, orderRepository, deliveryRepository, hashPassword, logger = noopLogger }) {
+    this.logger = logger;
     this.userRepository = userRepository;
     this.orderRepository = orderRepository;
     this.deliveryRepository = deliveryRepository;
@@ -33,19 +36,26 @@ export class MockService {
   // ---------- Datos simulados (NO se guardan) ----------
 
   getUsers(qty) {
-    return generateUsers(this.#parseQty(qty), { role: USER_ROLES.USER });
+    const amount = this.#parseQty(qty);
+    this.logger.debug(`Generando ${amount} usuarios simulados (sin guardar)`);
+    return generateUsers(amount, { role: USER_ROLES.USER });
   }
 
   getCouriers(qty) {
-    return generateUsers(this.#parseQty(qty), { role: USER_ROLES.COURIER });
+    const amount = this.#parseQty(qty);
+    this.logger.debug(`Generando ${amount} repartidores simulados (sin guardar)`);
+    return generateUsers(amount, { role: USER_ROLES.COURIER });
   }
 
   getOrders(qty) {
-    return this.#buildDataset(this.#parseQty(qty)).orders;
+    const amount = this.#parseQty(qty);
+    this.logger.debug(`Generando ${amount} pedidos simulados (sin guardar)`);
+    return this.#buildDataset(amount).orders;
   }
 
   getDeliveries(qty) {
     const amount = this.#parseQty(qty);
+    this.logger.debug(`Generando ${amount} entregas simuladas (sin guardar)`);
     const couriers = generateUsers(Math.max(1, Math.ceil(amount / 5)), { role: USER_ROLES.COURIER });
     const [customer] = generateUsers(1);
     return Array.from({ length: amount }, () => {
@@ -59,12 +69,23 @@ export class MockService {
 
   // Dataset completo y coherente entre sí (mismos ids en las relaciones).
   getDataset(qty) {
-    return this.#buildDataset(this.#parseQty(qty));
+    const amount = this.#parseQty(qty);
+    this.logger.debug(`Generando dataset simulado completo de ${amount} (sin guardar)`);
+    return this.#buildDataset(amount);
   }
 
   // ---------- Carga en la base ----------
 
   async seed({ qty, type = MOCK_TYPES.USERS } = {}) {
+    const result = await this.#executeSeed({ qty, type });
+    this.logger.info(
+      `Seed de mocks (${type}): ${result.insertados} documentos insertados en ${result.coleccion}`,
+      { type, insertados: result.insertados }
+    );
+    return result;
+  }
+
+  async #executeSeed({ qty, type }) {
     // Se valida todo antes de tocar la base.
     this.#assertValidType(type);
     const amount = this.#parseQty(qty);
@@ -87,6 +108,7 @@ export class MockService {
     const deliveries = await this.deliveryRepository.deleteMocks();
     const orders = await this.orderRepository.deleteMocks();
     const users = await this.userRepository.deleteMocks();
+    this.logger.info(`Datos mock eliminados: ${deliveries} entregas, ${orders} pedidos, ${users} usuarios`);
     return {
       eliminados: {
         [MOCK_COLLECTIONS[MOCK_TYPES.DELIVERIES]]: deliveries,

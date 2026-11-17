@@ -6,6 +6,11 @@ class OrderRepository {
     return inserted.length;
   }
 
+  async create(data) {
+    const order = await OrderModel.create(data);
+    return order.toObject({ versionKey: false });
+  }
+
   async getAll({ page = 1, limit = 20 } = {}) {
     return OrderModel.find({}, '-__v')
       .sort({ createdAt: -1 })

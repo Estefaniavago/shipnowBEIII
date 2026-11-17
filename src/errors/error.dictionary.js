@@ -9,6 +9,7 @@ export const ERROR_DICTIONARY = Object.freeze({
   INVALID_JSON: { status: HTTP_STATUS.BAD_REQUEST, message: 'El cuerpo de la petición no es un JSON válido' },
   NEGATIVE_VALUE: { status: HTTP_STATUS.BAD_REQUEST, message: 'El valor no puede ser negativo' },
   INVALID_STATUS: { status: HTTP_STATUS.BAD_REQUEST, message: 'El estado enviado no es válido' },
+  INVALID_PRIORITY: { status: HTTP_STATUS.BAD_REQUEST, message: 'La prioridad enviada no es válida' },
   INVALID_ROLE: { status: HTTP_STATUS.BAD_REQUEST, message: 'El rol enviado no es válido' },
 
   // No encontrado

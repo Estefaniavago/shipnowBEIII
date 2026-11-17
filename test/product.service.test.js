@@ -20,7 +20,7 @@ function makeFakeRepo(initial = []) {
       return items.find((p) => p._id === id) ?? null;
     },
     async create(data) {
-      const created = { _id: String(items.length + 1), ...data };
+      const created = { _id: String(items.length + 1).padStart(24, '0'), ...data };
       items.push(created);
       return created;
     },
@@ -111,4 +111,16 @@ test('update: DISCONTINUED se mantiene aunque haya stock', async () => {
   const repo = makeFakeRepo([{ _id: ID1, name: 'A', price: 1, stock: 0, status: PRODUCT_STATUS.DISCONTINUED }]);
   const updated = await new ProductService(repo).update(ID1, { stock: 10 });
   assert.equal(updated.status, PRODUCT_STATUS.DISCONTINUED);
+});
+
+test('logging: crear y actualizar un producto registra eventos info', async () => {
+  const calls = [];
+  const logger = { info: (msg) => calls.push(msg) };
+  const repo = makeFakeRepo();
+  const service = new ProductService(repo, logger);
+  const created = await service.create({ name: 'Caja', price: 10, stock: 2 });
+  await service.update(created._id, { stock: 0 });
+  assert.equal(calls.length, 2);
+  assert.match(calls[0], /^Producto creado: /);
+  assert.match(calls[1], /^Producto actualizado: .*OUT_OF_STOCK/);
 });

@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { NODE_ENVS } from '../constants/index.js';
+import { NODE_ENVS, LOG_LEVELS, LOG_LEVEL_BY_ENV, LOG_DEFAULTS } from '../constants/index.js';
 
 dotenv.config();
 
@@ -25,11 +25,21 @@ if (!VALID_ENVIRONMENTS.includes(process.env.NODE_ENV)) {
   );
 }
 
+// LOG_LEVEL es opcional: si no se define, el nivel depende de NODE_ENV.
+const customLogLevel = process.env.LOG_LEVEL?.trim();
+if (customLogLevel && !Object.values(LOG_LEVELS).includes(customLogLevel)) {
+  throw new Error(
+    `[Config] LOG_LEVEL inválido ("${customLogLevel}"). Valores permitidos: ${Object.values(LOG_LEVELS).join(', ')}.`
+  );
+}
+
 const config = Object.freeze({
   port,
   mongoUri: process.env.MONGODB_URI,
   nodeEnv: process.env.NODE_ENV,
   isProduction: process.env.NODE_ENV === NODE_ENVS.PRODUCTION,
+  logLevel: customLogLevel || LOG_LEVEL_BY_ENV[process.env.NODE_ENV],
+  logDir: LOG_DEFAULTS.DIR,
 });
 
 export default config;

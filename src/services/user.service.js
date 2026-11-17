@@ -7,6 +7,7 @@ import {
   EmailAlreadyExistsError,
   RequestValidationError,
 } from '../errors/index.js';
+import { noopLogger } from '../utils/noop.logger.js';
 import { assertValidId, findMissingFields, parsePagination } from '../utils/validators.js';
 
 const SALT_ROUNDS = 10;
@@ -26,8 +27,9 @@ function assertValidPassword(password) {
 }
 
 export class UserService {
-  constructor(userRepository) {
+  constructor(userRepository, logger = noopLogger) {
     this.userRepository = userRepository;
+    this.logger = logger;
   }
 
   async getAll({ page, limit } = {}) {
@@ -51,7 +53,9 @@ export class UserService {
     if (await this.userRepository.existsByEmail(email)) throw new EmailAlreadyExistsError(email);
 
     const hashed = await bcrypt.hash(password, SALT_ROUNDS);
-    return this.userRepository.create({ name, email, password: hashed, role: role ?? USER_ROLES.USER });
+    const user = await this.userRepository.create({ name, email, password: hashed, role: role ?? USER_ROLES.USER });
+    this.logger.info(`Usuario creado: ${user._id} (rol ${user.role})`);
+    return user;
   }
 
   async update(id, data = {}) {
@@ -62,11 +66,15 @@ export class UserService {
       assertValidPassword(changes.password);
       changes.password = await bcrypt.hash(changes.password, SALT_ROUNDS);
     }
-    return this.userRepository.update(id, changes);
+    const updated = await this.userRepository.update(id, changes);
+    this.logger.info(`Usuario actualizado: ${id}`);
+    return updated;
   }
 
   async delete(id) {
     await this.getById(id);
-    return this.userRepository.delete(id);
+    const deleted = await this.userRepository.delete(id);
+    this.logger.info(`Usuario eliminado: ${id}`);
+    return deleted;
   }
 }
