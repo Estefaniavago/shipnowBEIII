@@ -31,6 +31,51 @@ API REST de ShipNow con arquitectura por capas **Controller → Service → Repo
 
 Si falta `PORT`, `MONGODB_URI` o `NODE_ENV`, la app **no arranca** y muestra un error con las variables faltantes.
 
+## Testing funcional (Módulo 6)
+
+La suite funcional usa **Mocha** para organizar/ejecutar, **Chai** para aserciones y **Supertest** para realizar peticiones HTTP contra la aplicación Express sin abrir un puerto manualmente.
+
+### Preparar el entorno de testing
+
+1. Instalar dependencias:
+   ```bash
+   npm install
+   ```
+2. Copiar `.env.test.example` como `.env.test` y verificar que `MONGODB_URI` apunte a una base exclusiva para pruebas (por defecto `shipnow_test`):
+   ```env
+   PORT=3001
+   MONGODB_URI=mongodb://127.0.0.1:27017/shipnow_test
+   NODE_ENV=test
+   LOG_LEVEL=fatal
+   ```
+3. Asegurarse de que MongoDB esté iniciado y ejecutar:
+   ```bash
+   npm test
+   ```
+
+**Importante:** la suite conecta a MongoDB y elimina los documentos de las colecciones User, Order, Delivery y Product antes de cada prueba. Usá exclusivamente una base descartable de testing. Nunca configures `.env.test` con la URI de desarrollo o producción. Al finalizar también se limpian los datos y se cierra la conexión.
+
+### Cobertura
+
+Los tests están en `tests/` y validan status HTTP, estructura del body, propiedades relevantes y códigos de error:
+
+- **Users:** listado, alta, datos incompletos y usuario inexistente.
+- **Orders:** listado, creación, consulta por ID, pedido inexistente y estado inválido/actualización.
+- **Deliveries:** listado, creación y datos obligatorios.
+- **Mocks:** generación de users/orders, cantidad inválida y carga/limpieza de datos.
+- **Logger:** respuesta de la herramienta de validación.
+- **Swagger:** interfaz `/api/docs/` y especificación `/api/docs/openapi.json`.
+- **Errores generales:** ruta inexistente y formato estructurado de error.
+
+La aplicación se importa desde `src/app.js`; el levantamiento del puerto queda en `src/server.js`, por lo que Supertest puede probar Express directamente.
+
+### Aclaraciones
+
+- Se requiere una instancia MongoDB local o accesible por la URI de `.env.test`.
+- `.env.test` no se versiona; el repositorio incluye `.env.test.example`.
+- Las pruebas crean datos controlados y limpian las colecciones entre casos para no depender del orden de ejecución.
+- El comando `npm test` ejecuta la suite funcional de `tests/`. Los tests de servicios existentes en `test/` corresponden a pruebas previas y no se mezclan con esta suite.
+
 ## Endpoints
 
 | Método | Ruta | Descripción |
