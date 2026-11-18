@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { generateTrackingCode } from './tracking.js';
 import {
   USER_ROLES,
   ORDER_STATUS,
@@ -80,7 +81,7 @@ export function generateDelivery({ order, courierId = null }) {
     order: order._id,
     courier: status === DELIVERY_STATUS.PENDING ? null : courierId,
     status,
-    trackingCode: `SN-${crypto.randomBytes(4).toString('hex').toUpperCase()}`,
+    trackingCode: generateTrackingCode(),
     scheduledAt,
     deliveredAt: status === DELIVERY_STATUS.DELIVERED ? scheduledAt : null,
     isMock: true,

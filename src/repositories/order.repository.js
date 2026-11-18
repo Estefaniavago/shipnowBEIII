@@ -23,6 +23,14 @@ class OrderRepository {
     return OrderModel.findById(id, '-__v').lean();
   }
 
+  async updateStatus(id, status) {
+    return OrderModel.findByIdAndUpdate(id, { status }, {
+      new: true,
+      runValidators: true,
+      projection: '-__v',
+    }).lean();
+  }
+
   // Pedidos más recientes en alguno de los estados indicados (solo id y estado).
   async getByStatuses(statuses, limit = 100) {
     const orders = await OrderModel.find({ status: { $in: statuses } }, 'status')

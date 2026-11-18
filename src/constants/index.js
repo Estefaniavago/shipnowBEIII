@@ -120,3 +120,5 @@ export const LOG_DEFAULTS = Object.freeze({
   MAX_FILES: '14d',
   TIMESTAMP_FORMAT: 'YYYY-MM-DD HH:mm:ss',
 });
+
+export const DOCS_ROUTE = '/api/docs';

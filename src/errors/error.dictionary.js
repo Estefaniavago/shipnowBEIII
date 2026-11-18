@@ -16,10 +16,13 @@ export const ERROR_DICTIONARY = Object.freeze({
   USER_NOT_FOUND: { status: HTTP_STATUS.NOT_FOUND, message: 'Usuario no encontrado' },
   PRODUCT_NOT_FOUND: { status: HTTP_STATUS.NOT_FOUND, message: 'Producto no encontrado' },
   ORDER_NOT_FOUND: { status: HTTP_STATUS.NOT_FOUND, message: 'Pedido no encontrado' },
+  DELIVERY_NOT_FOUND: { status: HTTP_STATUS.NOT_FOUND, message: 'Entrega no encontrada' },
   ROUTE_NOT_FOUND: { status: HTTP_STATUS.NOT_FOUND, message: 'Ruta no encontrada' },
 
   // Conflictos
   EMAIL_ALREADY_EXISTS: { status: HTTP_STATUS.CONFLICT, message: 'El email ya está registrado' },
+  DELIVERY_ALREADY_EXISTS: { status: HTTP_STATUS.CONFLICT, message: 'El pedido ya tiene una entrega asociada' },
+  DELIVERY_COURIER_REQUIRED: { status: HTTP_STATUS.CONFLICT, message: 'La entrega necesita un repartidor asignado para este estado' },
   DUPLICATE_KEY: { status: HTTP_STATUS.CONFLICT, message: 'Ya existe un registro con esos datos únicos' },
 
   // Mocks

@@ -78,6 +78,12 @@ export class OrderNotFoundError extends AppError {
   }
 }
 
+export class DeliveryNotFoundError extends AppError {
+  constructor(id) {
+    super(ERROR_CODES.DELIVERY_NOT_FOUND, { details: [{ field: 'id', value: String(id) }] });
+  }
+}
+
 export class RouteNotFoundError extends AppError {
   constructor(method, path) {
     super(ERROR_CODES.ROUTE_NOT_FOUND, {
@@ -91,6 +97,21 @@ export class RouteNotFoundError extends AppError {
 export class EmailAlreadyExistsError extends AppError {
   constructor(email) {
     super(ERROR_CODES.EMAIL_ALREADY_EXISTS, { details: [{ field: 'email', value: email }] });
+  }
+}
+
+export class DeliveryAlreadyExistsError extends AppError {
+  constructor(orderId) {
+    super(ERROR_CODES.DELIVERY_ALREADY_EXISTS, { details: [{ field: 'order', value: String(orderId) }] });
+  }
+}
+
+export class DeliveryCourierRequiredError extends AppError {
+  constructor(status) {
+    super(ERROR_CODES.DELIVERY_COURIER_REQUIRED, {
+      message: `Una entrega ${status} necesita un repartidor asignado`,
+      details: [{ field: 'courier', status }],
+    });
   }
 }
 

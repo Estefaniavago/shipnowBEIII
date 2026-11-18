@@ -100,3 +100,22 @@ test('getById: inexistente => ORDER_NOT_FOUND', async () => {
   const { service } = setup();
   await assert.rejects(() => service.getById(MISSING_ID), { code: ERROR_CODES.ORDER_NOT_FOUND, statusCode: 404 });
 });
+
+test('updateStatus: cambia el estado y loguea la transición', async () => {
+  const { service, calls } = setup();
+  const order = await service.create(validOrder());
+  calls.length = 0;
+  service.orderRepository.updateStatus = async (id, status) => Object.assign(order, { status });
+  const updated = await service.updateStatus(order._id, ORDER_STATUS.CONFIRMED);
+  assert.equal(updated.status, ORDER_STATUS.CONFIRMED);
+  assert.match(calls[0][1], /PENDING -> CONFIRMED/);
+});
+
+test('updateStatus: estado inválido => INVALID_STATUS, sin estado => MISSING_FIELDS, id malo => INVALID_ID, inexistente => 404', async () => {
+  const { service } = setup();
+  const order = await service.create(validOrder());
+  await assert.rejects(() => service.updateStatus(order._id, 'VOLANDO'), { code: ERROR_CODES.INVALID_STATUS, statusCode: 400 });
+  await assert.rejects(() => service.updateStatus(order._id, undefined), { code: ERROR_CODES.MISSING_FIELDS });
+  await assert.rejects(() => service.updateStatus('123', ORDER_STATUS.CONFIRMED), { code: ERROR_CODES.INVALID_ID });
+  await assert.rejects(() => service.updateStatus(MISSING_ID, ORDER_STATUS.CONFIRMED), { code: ERROR_CODES.ORDER_NOT_FOUND });
+});

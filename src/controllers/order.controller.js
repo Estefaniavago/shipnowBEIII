@@ -17,3 +17,7 @@ export const getById = asyncHandler(async (req, res) => {
 export const create = asyncHandler(async (req, res) => {
   ok(res, HTTP_STATUS.CREATED, await orderService.create(req.body));
 });
+
+export const updateStatus = asyncHandler(async (req, res) => {
+  ok(res, HTTP_STATUS.OK, await orderService.updateStatus(req.params.id, req.body?.status));
+});

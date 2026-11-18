@@ -1,6 +1,35 @@
 import { DeliveryModel } from '../models/delivery.model.js';
 
 class DeliveryRepository {
+  async create(data) {
+    const delivery = await DeliveryModel.create(data);
+    return delivery.toObject({ versionKey: false });
+  }
+
+  async getAll({ page = 1, limit = 20 } = {}) {
+    return DeliveryModel.find({}, '-__v')
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean();
+  }
+
+  async getById(id) {
+    return DeliveryModel.findById(id, '-__v').lean();
+  }
+
+  async existsByOrder(orderId) {
+    return DeliveryModel.exists({ order: orderId });
+  }
+
+  async update(id, data) {
+    return DeliveryModel.findByIdAndUpdate(id, data, {
+      new: true,
+      runValidators: true,
+      projection: '-__v',
+    }).lean();
+  }
+
   async insertMany(deliveries) {
     const inserted = await DeliveryModel.insertMany(deliveries);
     return inserted.length;

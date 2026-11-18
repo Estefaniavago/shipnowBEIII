@@ -4,6 +4,7 @@ import {
   UserNotFoundError,
   MissingFieldsError,
   InvalidPriorityError,
+  InvalidStatusError,
   RequestValidationError,
 } from '../errors/index.js';
 import {
@@ -16,6 +17,7 @@ import {
 import { noopLogger } from '../utils/noop.logger.js';
 
 const validPriorities = Object.values(ORDER_PRIORITY);
+const validStatuses = Object.values(ORDER_STATUS);
 
 function parseItems(items) {
   if (!Array.isArray(items) || items.length === 0) {
@@ -53,6 +55,17 @@ export class OrderService {
     const order = await this.orderRepository.getById(id);
     if (!order) throw new OrderNotFoundError(id);
     return order;
+  }
+
+  async updateStatus(id, status) {
+    assertValidId(id);
+    if (status === undefined || status === null || status === '') throw new MissingFieldsError(['status']);
+    if (!validStatuses.includes(status)) throw new InvalidStatusError(status, validStatuses);
+
+    const previousStatus = (await this.getById(id)).status;
+    const updated = await this.orderRepository.updateStatus(id, status);
+    this.logger.info(`Pedido ${id}: estado ${previousStatus} -> ${status}`);
+    return updated;
   }
 
   async create(data = {}) {
