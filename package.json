@@ -7,14 +7,16 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "mocha --timeout 15000 \"tests/**/*.test.js\"",
-    "test:watch": "mocha --watch --timeout 15000 \"tests/**/*.test.js\""
+    "test": "npm run test:unit && npm run test:functional",
+    "test:unit": "mocha \"tests/unit/**/*.test.js\"",
+    "test:functional": "mocha --require ./tests/setup/db.hooks.js \"tests/functional/**/*.test.js\""
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "mongoose": "^8.5.0",
+    "multer": "^2.0.0",
     "swagger-ui-express": "^5.0.1",
     "winston": "^3.13.0",
     "winston-daily-rotate-file": "^5.0.0"
