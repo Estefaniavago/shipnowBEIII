@@ -5,7 +5,7 @@ import { buildOpenApiSpec } from './openapi/index.js';
 
 // Router de documentación: toda la configuración de Swagger vive en src/docs,
 // separada de las rutas de negocio.
-const spec = buildOpenApiSpec({ port: config.port });
+const spec = buildOpenApiSpec({ port: config.port, maxFileSizeMb: config.upload.maxFileSizeMb });
 
 export const docsRouter = Router();
 

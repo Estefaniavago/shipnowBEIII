@@ -14,6 +14,7 @@ export const buildInfo = () => ({
     '- **Respuesta exitosa:** `{ "status": "success", "payload": ... }`. Excepciones: los `GET /api/mocks/...` devuelven los datos directamente, y los `DELETE` exitosos responden `204` sin cuerpo.',
     '- **Respuesta de error (siempre la misma estructura):** `{ "status": "error", "code", "message", "details", "path", "timestamp" }`. El `code` identifica el error y sale del diccionario de errores de la API.',
     '- **Ids:** son ObjectId de MongoDB (24 caracteres hexadecimales). Un id con otro formato responde `400 INVALID_ID`.',
+    '- **Carga de archivos:** los endpoints de documentos y comprobantes usan `multipart/form-data` (PDF, JPG o PNG). En la base solo se guardan los metadatos.',
     '- **Autenticación:** la API no usa autenticación, por eso no se documentan errores 401/403.',
     '- Una ruta inexistente responde `404 ROUTE_NOT_FOUND` y un JSON inválido en el body responde `400 INVALID_JSON`.',
   ].join('\n'),

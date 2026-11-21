@@ -9,6 +9,8 @@ const STATUS_TITLES = Object.freeze({
   [HTTP_STATUS.BAD_REQUEST]: 'Solicitud inválida',
   [HTTP_STATUS.NOT_FOUND]: 'Recurso no encontrado',
   [HTTP_STATUS.CONFLICT]: 'Conflicto con el estado actual de los datos',
+  [HTTP_STATUS.PAYLOAD_TOO_LARGE]: 'El archivo supera el tamaño máximo',
+  [HTTP_STATUS.UNSUPPORTED_MEDIA_TYPE]: 'Tipo de archivo no permitido',
   [HTTP_STATUS.INTERNAL_SERVER_ERROR]: 'Error interno del servidor',
   [HTTP_STATUS.SERVICE_UNAVAILABLE]: 'Base de datos no disponible',
 });
@@ -85,6 +87,13 @@ export const jsonBody = (schemaName, example, description) => ({
   required: true,
   description,
   content: { 'application/json': { schema: ref(schemaName), ...(example ? { example } : {}) } },
+});
+
+// Body multipart/form-data (carga de archivos).
+export const multipartBody = (schemaName, description) => ({
+  required: true,
+  description,
+  content: { 'multipart/form-data': { schema: ref(schemaName) } },
 });
 
 export function operation({

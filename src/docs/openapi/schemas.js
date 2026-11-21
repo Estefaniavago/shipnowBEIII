@@ -1,6 +1,6 @@
 import {
   USER_ROLES, PRODUCT_STATUS, ORDER_STATUS, ORDER_PRIORITY, DELIVERY_STATUS,
-  MOCK_COLLECTIONS, LOG_LEVELS,
+  MOCK_COLLECTIONS, LOG_LEVELS, DOCUMENT_TYPES, RECEIPT_DOCUMENT_TYPE, UPLOAD_FIELDS,
 } from '../../constants/index.js';
 import { ERROR_DICTIONARY } from '../../errors/index.js';
 import { ref } from './helpers.js';
@@ -48,6 +48,42 @@ export const schemas = {
     },
   },
 
+  // ---------- Archivos (solo metadatos: el archivo vive en el disco del servidor) ----------
+  FileMetadata: {
+    type: 'object',
+    description: 'Metadatos de un archivo subido. El contenido del archivo NO se guarda en la base de datos.',
+    properties: {
+      _id: objectId('6650a1f2c3d4e5f607182940'),
+      originalName: { type: 'string', example: 'dni-frente.pdf' },
+      storedName: { type: 'string', description: 'Nombre generado por el servidor (timestamp + UUID + extensión).', example: '1731855000000-3f2b9c1e-7a4d-4e0b-9c55-1d2f8a6b7c90.pdf' },
+      path: { type: 'string', description: 'Ruta relativa a la carpeta de uploads.', example: 'user-documents/1731855000000-3f2b9c1e-7a4d-4e0b-9c55-1d2f8a6b7c90.pdf' },
+      mimeType: { type: 'string', enum: ['application/pdf', 'image/jpeg', 'image/png'], example: 'application/pdf' },
+      size: { type: 'integer', description: 'Tamaño en bytes.', example: 48213 },
+      documentType: { type: 'string', enum: [...Object.values(DOCUMENT_TYPES), RECEIPT_DOCUMENT_TYPE], example: DOCUMENT_TYPES.ID_CARD },
+      uploadedAt: dateTime(NOW),
+    },
+  },
+  UserDocumentUpload: {
+    type: 'object',
+    required: [UPLOAD_FIELDS.USER_DOCUMENT],
+    properties: {
+      [UPLOAD_FIELDS.USER_DOCUMENT]: { type: 'string', format: 'binary', description: 'Archivo PDF, JPG o PNG.' },
+      documentType: {
+        type: 'string',
+        enum: Object.values(DOCUMENT_TYPES),
+        default: DOCUMENT_TYPES.OTHER,
+        description: 'Opcional. Si no se envía se usa OTHER. DRIVER_LICENSE se guarda en la carpeta licenses/.',
+      },
+    },
+  },
+  DeliveryReceiptUpload: {
+    type: 'object',
+    required: [UPLOAD_FIELDS.DELIVERY_RECEIPT],
+    properties: {
+      [UPLOAD_FIELDS.DELIVERY_RECEIPT]: { type: 'string', format: 'binary', description: 'Comprobante en PDF, JPG o PNG.' },
+    },
+  },
+
   // ---------- Usuarios ----------
   User: {
     type: 'object',
@@ -56,6 +92,7 @@ export const schemas = {
       name: { type: 'string', example: 'Ana Pérez' },
       email: { type: 'string', format: 'email', example: 'ana.perez@test.com' },
       role: { type: 'string', enum: Object.values(USER_ROLES), example: USER_ROLES.USER },
+      documents: { type: 'array', description: 'Metadatos de los documentos cargados.', items: ref('FileMetadata') },
       isMock: { type: 'boolean', description: 'true si fue generado por el módulo de mocks.', example: false },
       createdAt: dateTime(NOW),
       updatedAt: dateTime(NOW),
@@ -73,7 +110,7 @@ export const schemas = {
   },
   UserUpdate: {
     type: 'object',
-    description: 'Todos los campos son opcionales.',
+    description: 'Todos los campos son opcionales. Los documentos no se editan por acá: se cargan con POST /api/users/{id}/documents.',
     properties: {
       name: { type: 'string', example: 'Ana P. Gómez' },
       email: { type: 'string', format: 'email' },
@@ -182,6 +219,7 @@ export const schemas = {
       trackingCode: { type: 'string', example: 'SN-2AEAC679' },
       scheduledAt: dateTime(NOW),
       deliveredAt: { ...dateTime(null), nullable: true, description: 'Solo tiene valor cuando el estado es DELIVERED.' },
+      receipts: { type: 'array', description: 'Metadatos de los comprobantes cargados.', items: ref('FileMetadata') },
       isMock: { type: 'boolean', example: false },
       createdAt: dateTime(NOW),
       updatedAt: dateTime(NOW),
