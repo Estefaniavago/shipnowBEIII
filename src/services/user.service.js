@@ -61,6 +61,7 @@ export class UserService {
   async update(id, data = {}) {
     await this.getById(id);
     const changes = { ...data };
+    delete changes.documents; // los documentos solo se agregan por POST /:id/documents
     assertValidRole(changes.role);
     if (changes.password !== undefined) {
       assertValidPassword(changes.password);

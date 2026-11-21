@@ -1,4 +1,4 @@
-import { userService } from '../services/index.js';
+import { userService, documentService } from '../services/index.js';
 import { HTTP_STATUS, RESPONSE_STATUS } from '../constants/index.js';
 import { asyncHandler } from '../utils/async.handler.js';
 
@@ -25,4 +25,13 @@ export const update = asyncHandler(async (req, res) => {
 export const remove = asyncHandler(async (req, res) => {
   await userService.delete(req.params.id);
   res.status(HTTP_STATUS.NO_CONTENT).send();
+});
+
+export const uploadDocument = asyncHandler(async (req, res) => {
+  const user = await documentService.uploadUserDocument({
+    userId: req.params.id,
+    file: req.file,
+    documentType: req.body?.documentType,
+  });
+  ok(res, HTTP_STATUS.CREATED, user);
 });

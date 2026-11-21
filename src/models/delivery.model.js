@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { DELIVERY_STATUS } from '../constants/index.js';
+import { fileMetadataSchema } from './file-metadata.schema.js';
 
 const deliverySchema = new mongoose.Schema(
   {
@@ -10,6 +11,7 @@ const deliverySchema = new mongoose.Schema(
     trackingCode: { type: String, required: true },
     scheduledAt: { type: Date, required: true },
     deliveredAt: { type: Date, default: null },
+    receipts: { type: [fileMetadataSchema], default: [] },
     isMock: { type: Boolean, default: false },
   },
   { timestamps: true }

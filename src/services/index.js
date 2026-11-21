@@ -1,6 +1,8 @@
 // Composition root: acá se "cablean" las dependencias (Service <- Repository, Logger).
 import bcrypt from 'bcryptjs';
+import config from '../config/index.js';
 import logger from '../config/logger.js';
+import { LocalFileStorage } from '../storage/local.file.storage.js';
 import productRepository from '../repositories/product.repository.js';
 import userRepository from '../repositories/user.repository.js';
 import orderRepository from '../repositories/order.repository.js';
@@ -11,6 +13,7 @@ import { DeliveryService } from './delivery.service.js';
 import { OrderService } from './order.service.js';
 import { MockService } from './mock.service.js';
 import { LogService } from './log.service.js';
+import { DocumentService } from './document.service.js';
 
 const HASH_ROUNDS = 10;
 
@@ -18,6 +21,12 @@ export const productService = new ProductService(productRepository, logger);
 export const userService = new UserService(userRepository, logger);
 export const orderService = new OrderService(orderRepository, userRepository, logger);
 export const deliveryService = new DeliveryService(deliveryRepository, orderRepository, userRepository, logger);
+export const documentService = new DocumentService({
+  userRepository,
+  deliveryRepository,
+  fileStorage: new LocalFileStorage({ rootDir: config.upload.dir }),
+  logger,
+});
 export const logService = new LogService(logger);
 export const mockService = new MockService({
   userRepository,

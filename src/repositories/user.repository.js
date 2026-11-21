@@ -31,6 +31,15 @@ class UserRepository {
     return publicUser;
   }
 
+  // Agrega los metadatos de un documento al usuario (devuelve el usuario actualizado o null).
+  async addDocument(id, metadata) {
+    return UserModel.findByIdAndUpdate(
+      id,
+      { $push: { documents: metadata } },
+      { new: true, runValidators: true, projection: PUBLIC_PROJECTION }
+    ).lean();
+  }
+
   // Inserta varios usuarios de una vez. Devuelve la cantidad insertada.
   async insertMany(users) {
     const inserted = await UserModel.insertMany(users);

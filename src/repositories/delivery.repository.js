@@ -18,6 +18,15 @@ class DeliveryRepository {
     return DeliveryModel.findById(id, '-__v').lean();
   }
 
+  // Agrega los metadatos de un comprobante a la entrega (devuelve la entrega actualizada o null).
+  async addReceipt(id, metadata) {
+    return DeliveryModel.findByIdAndUpdate(
+      id,
+      { $push: { receipts: metadata } },
+      { new: true, runValidators: true, projection: '-__v' }
+    ).lean();
+  }
+
   async existsByOrder(orderId) {
     return DeliveryModel.exists({ order: orderId });
   }

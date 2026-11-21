@@ -1,4 +1,4 @@
-import { deliveryService } from '../services/index.js';
+import { deliveryService, documentService } from '../services/index.js';
 import { HTTP_STATUS, RESPONSE_STATUS } from '../constants/index.js';
 import { asyncHandler } from '../utils/async.handler.js';
 
@@ -20,4 +20,12 @@ export const create = asyncHandler(async (req, res) => {
 
 export const update = asyncHandler(async (req, res) => {
   ok(res, HTTP_STATUS.OK, await deliveryService.update(req.params.id, req.body));
+});
+
+export const uploadReceipt = asyncHandler(async (req, res) => {
+  const delivery = await documentService.uploadDeliveryReceipt({
+    deliveryId: req.params.id,
+    file: req.file,
+  });
+  ok(res, HTTP_STATUS.CREATED, delivery);
 });
