@@ -115,6 +115,61 @@ export class DeliveryCourierRequiredError extends AppError {
   }
 }
 
+// ---------- Archivos ----------
+const toMb = (bytes) => Number((bytes / 1024 / 1024).toFixed(2));
+
+export class FileRequiredError extends AppError {
+  constructor(field) {
+    super(ERROR_CODES.FILE_REQUIRED, {
+      message: `Debe enviar un archivo en el campo "${field}" (multipart/form-data)`,
+      details: [{ field }],
+    });
+  }
+}
+
+export class UnexpectedFileFieldError extends AppError {
+  constructor(expected, received) {
+    const message = received === expected
+      ? `Solo se admite un archivo en el campo "${expected}"`
+      : `El archivo debe enviarse en el campo "${expected}" (se recibió "${received}")`;
+    super(ERROR_CODES.UNEXPECTED_FILE_FIELD, { message, details: [{ expected, received }] });
+  }
+}
+
+export class DocumentTypeInvalidError extends AppError {
+  constructor(type, allowed) {
+    super(ERROR_CODES.DOCUMENT_TYPE_INVALID, {
+      message: `Tipo de documento inválido: ${type}. Permitidos: ${allowed.join(', ')}`,
+      details: [{ field: 'documentType', value: String(type), allowed }],
+    });
+  }
+}
+
+export class FileTypeInvalidError extends AppError {
+  constructor(mimeType, allowed) {
+    super(ERROR_CODES.FILE_TYPE_INVALID, {
+      message: `Tipo de archivo no permitido: ${mimeType}. Permitidos: ${allowed.join(', ')}`,
+      details: [{ mimeType: String(mimeType), allowed }],
+    });
+  }
+}
+
+export class FileTooLargeError extends AppError {
+  constructor(maxBytes) {
+    super(ERROR_CODES.FILE_TOO_LARGE, {
+      message: `El archivo supera el tamaño máximo permitido de ${toMb(maxBytes)} MB`,
+      details: [{ maxBytes, maxMB: toMb(maxBytes) }],
+    });
+  }
+}
+
+export class FileSaveError extends AppError {
+  constructor(relativePath, cause) {
+    super(ERROR_CODES.FILE_SAVE_FAILED, { details: [], cause });
+    this.relativePath = relativePath; // solo para el log, no se envía al cliente
+  }
+}
+
 // ---------- Mocks ----------
 const QTY_REASON_TO_CODE = Object.freeze({
   invalid: ERROR_CODES.MOCK_QTY_INVALID,

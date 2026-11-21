@@ -82,6 +82,8 @@ export const HTTP_STATUS = Object.freeze({
   BAD_REQUEST: 400,
   NOT_FOUND: 404,
   CONFLICT: 409,
+  PAYLOAD_TOO_LARGE: 413,
+  UNSUPPORTED_MEDIA_TYPE: 415,
   INTERNAL_SERVER_ERROR: 500,
   SERVICE_UNAVAILABLE: 503,
 });
@@ -122,3 +124,39 @@ export const LOG_DEFAULTS = Object.freeze({
 });
 
 export const DOCS_ROUTE = '/api/docs';
+
+// ---------- Carga de archivos ----------
+export const DOCUMENT_TYPES = Object.freeze({
+  ID_CARD: 'ID_CARD',
+  DRIVER_LICENSE: 'DRIVER_LICENSE',
+  PROOF_OF_ADDRESS: 'PROOF_OF_ADDRESS',
+  OTHER: 'OTHER',
+});
+
+// Tipo con el que se registran los comprobantes de entrega (no lo elige el cliente).
+export const RECEIPT_DOCUMENT_TYPE = 'DELIVERY_RECEIPT';
+
+// Subcarpetas dentro de la carpeta de uploads.
+export const UPLOAD_FOLDERS = Object.freeze({
+  USER_DOCUMENTS: 'user-documents',
+  LICENSES: 'licenses',
+  DELIVERY_RECEIPTS: 'delivery-receipts',
+});
+
+// Nombre del campo de archivo que espera cada endpoint (multipart/form-data).
+export const UPLOAD_FIELDS = Object.freeze({
+  USER_DOCUMENT: 'document',
+  DELIVERY_RECEIPT: 'receipt',
+});
+
+// Tipos de archivo aceptados y la extensión con la que se guardan.
+export const ALLOWED_FILE_TYPES = Object.freeze({
+  'application/pdf': Object.freeze({ extension: '.pdf' }),
+  'image/jpeg': Object.freeze({ extension: '.jpg' }),
+  'image/png': Object.freeze({ extension: '.png' }),
+});
+
+export const UPLOAD_DEFAULTS = Object.freeze({
+  DIR: 'uploads',
+  MAX_FILE_SIZE_MB: 5,
+});

@@ -25,6 +25,14 @@ export const ERROR_DICTIONARY = Object.freeze({
   DELIVERY_COURIER_REQUIRED: { status: HTTP_STATUS.CONFLICT, message: 'La entrega necesita un repartidor asignado para este estado' },
   DUPLICATE_KEY: { status: HTTP_STATUS.CONFLICT, message: 'Ya existe un registro con esos datos únicos' },
 
+  // Archivos
+  FILE_REQUIRED: { status: HTTP_STATUS.BAD_REQUEST, message: 'Debe enviar un archivo' },
+  UNEXPECTED_FILE_FIELD: { status: HTTP_STATUS.BAD_REQUEST, message: 'El archivo se envió en un campo que el endpoint no espera' },
+  DOCUMENT_TYPE_INVALID: { status: HTTP_STATUS.BAD_REQUEST, message: 'El tipo de documento enviado no es válido' },
+  FILE_TYPE_INVALID: { status: HTTP_STATUS.UNSUPPORTED_MEDIA_TYPE, message: 'El tipo de archivo no está permitido' },
+  FILE_TOO_LARGE: { status: HTTP_STATUS.PAYLOAD_TOO_LARGE, message: 'El archivo supera el tamaño máximo permitido' },
+  FILE_SAVE_FAILED: { status: HTTP_STATUS.INTERNAL_SERVER_ERROR, message: 'Error al guardar el archivo en el servidor' },
+
   // Mocks
   MOCK_QTY_INVALID: { status: HTTP_STATUS.BAD_REQUEST, message: 'qty debe ser un número entero mayor a 0' },
   MOCK_QTY_NEGATIVE: { status: HTTP_STATUS.BAD_REQUEST, message: 'qty no puede ser negativa' },
