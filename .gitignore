@@ -1,9 +1,14 @@
 node_modules/
 .env
+# .env.test SÍ se versiona: solo apunta a una base local de testing, sin credenciales
 *.log
 
 # Logs generados por la app (la carpeta se conserva con .gitkeep)
 logs/*
 !logs/.gitkeep
 
-.env.test
+# Archivos subidos por los usuarios (nunca van al repo; la carpeta se conserva con .gitkeep)
+uploads/*
+!uploads/.gitkeep
+# Archivos que generan los tests
+uploads-test/
