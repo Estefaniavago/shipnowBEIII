@@ -26,4 +26,9 @@ const orderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Índices para los filtros del listado (cliente, estado y prioridad) ordenado por fecha.
+orderSchema.index({ customer: 1, createdAt: -1 });
+orderSchema.index({ status: 1, createdAt: -1 });
+orderSchema.index({ priority: 1, createdAt: -1 });
+
 export const OrderModel = mongoose.model('Order', orderSchema);

@@ -10,10 +10,10 @@ export const usersPaths = {
   '/api/users': {
     get: operation({
       tag, id: 'listUsers', summary: 'Listar usuarios',
-      description: 'Devuelve los usuarios paginados, del más nuevo al más antiguo. Nunca incluye el password.',
-      parameters: [paramRef('Page'), paramRef('Limit')],
+      description: 'Devuelve los usuarios paginados, del más nuevo al más antiguo. Se puede filtrar por `role`. Nunca incluye el password.',
+      parameters: [paramRef('FilterRole'), paramRef('Page'), paramRef('Limit')],
       responses: success(H.OK, 'Lista de usuarios', { type: 'array', items: ref('User') }),
-      errors: [E.VALIDATION_ERROR, ...DB_ERRORS], examplePath: '/api/users?page=0',
+      errors: [E.VALIDATION_ERROR, E.INVALID_ROLE, ...DB_ERRORS], examplePath: '/api/users?page=0',
     }),
     post: operation({
       tag, id: 'createUser', summary: 'Crear usuario',

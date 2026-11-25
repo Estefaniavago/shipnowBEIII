@@ -160,3 +160,21 @@ export const UPLOAD_DEFAULTS = Object.freeze({
   DIR: 'uploads',
   MAX_FILE_SIZE_MB: 5,
 });
+
+// ---------- Performance y operación ----------
+export const PAGINATION = Object.freeze({ DEFAULT_PAGE: 1, DEFAULT_LIMIT: 20, MAX_LIMIT: 100 });
+
+// Tamaño máximo del body JSON (los archivos tienen su propio límite en UPLOAD_MAX_FILE_SIZE_MB).
+export const BODY_LIMIT = '100kb';
+
+export const SERVICE_NAME = 'shipnow-api';
+export const HEALTH_STATUS = Object.freeze({ OK: 'ok' });
+export const DATABASE_STATES = Object.freeze({
+  CONNECTED: 'connected',
+  CONNECTING: 'connecting',
+  DISCONNECTING: 'disconnecting',
+  DISCONNECTED: 'disconnected',
+});
+
+// Tiempo máximo para cerrar ordenadamente al recibir SIGTERM (Docker espera 10 s por defecto).
+export const SHUTDOWN_TIMEOUT_MS = 8000;

@@ -1,0 +1,41 @@
+# Levanta la API + MongoDB para probar todo junto:  docker compose up --build
+# (MongoDB sin usuario ni clave: solo para desarrollo/demo local, no para producción real).
+services:
+  api:
+    build: .
+    image: shipnow-api:latest
+    ports:
+      - "${HOST_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      MONGODB_URI: mongodb://mongo:27017/shipnow
+      LOG_LEVEL: info
+      PUBLIC_URL: ${PUBLIC_URL:-}
+      # Mocks y logger test apagados por defecto en producción. Para probarlos:
+      #   ENABLE_INTERNAL_ENDPOINTS=true docker compose up --build
+      ENABLE_INTERNAL_ENDPOINTS: ${ENABLE_INTERNAL_ENDPOINTS:-false}
+      ENABLE_DOCS: ${ENABLE_DOCS:-true}
+    depends_on:
+      mongo:
+        condition: service_healthy
+    volumes:
+      - uploads-data:/app/uploads   # los archivos subidos sobreviven a recrear el contenedor
+      - logs-data:/app/logs
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:7
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  uploads-data:
+  logs-data:
+  mongo-data:

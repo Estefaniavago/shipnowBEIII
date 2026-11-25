@@ -6,6 +6,7 @@ export const ERROR_DICTIONARY = Object.freeze({
   VALIDATION_ERROR: { status: HTTP_STATUS.BAD_REQUEST, message: 'Los datos enviados no son válidos' },
   MISSING_FIELDS: { status: HTTP_STATUS.BAD_REQUEST, message: 'Faltan campos obligatorios' },
   INVALID_ID: { status: HTTP_STATUS.BAD_REQUEST, message: 'El id enviado no tiene un formato válido' },
+  PAYLOAD_TOO_LARGE: { status: HTTP_STATUS.PAYLOAD_TOO_LARGE, message: 'El cuerpo de la petición supera el tamaño máximo permitido' },
   INVALID_JSON: { status: HTTP_STATUS.BAD_REQUEST, message: 'El cuerpo de la petición no es un JSON válido' },
   NEGATIVE_VALUE: { status: HTTP_STATUS.BAD_REQUEST, message: 'El valor no puede ser negativo' },
   INVALID_STATUS: { status: HTTP_STATUS.BAD_REQUEST, message: 'El estado enviado no es válido' },

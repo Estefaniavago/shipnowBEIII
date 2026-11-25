@@ -1,5 +1,8 @@
 node_modules/
 .env
+.env.production
+.env.local
+.env.docker
 # .env.test SÍ se versiona: solo apunta a una base local de testing, sin credenciales
 *.log
 

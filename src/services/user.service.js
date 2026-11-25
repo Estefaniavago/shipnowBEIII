@@ -32,8 +32,11 @@ export class UserService {
     this.logger = logger;
   }
 
-  async getAll({ page, limit } = {}) {
-    return this.userRepository.getAll(parsePagination({ page, limit }));
+  // Filtro opcional: role. La paginación siempre se aplica (por defecto 20, máximo 100).
+  async getAll({ page, limit, role } = {}) {
+    assertValidRole(role);
+    const filters = role === undefined ? {} : { role };
+    return this.userRepository.getAll({ filters, ...parsePagination({ page, limit }) });
   }
 
   async getById(id) {

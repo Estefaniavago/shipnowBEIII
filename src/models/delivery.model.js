@@ -17,4 +17,9 @@ const deliverySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Una entrega por pedido (también hace rápida la búsqueda por pedido) + filtros del listado.
+deliverySchema.index({ order: 1 }, { unique: true });
+deliverySchema.index({ status: 1, createdAt: -1 });
+deliverySchema.index({ courier: 1, createdAt: -1 });
+
 export const DeliveryModel = mongoose.model('Delivery', deliverySchema);

@@ -1,4 +1,6 @@
-import { MOCK, MOCK_TYPES } from '../../constants/index.js';
+import {
+  MOCK, MOCK_TYPES, PAGINATION, USER_ROLES, ORDER_STATUS, ORDER_PRIORITY, DELIVERY_STATUS,
+} from '../../constants/index.js';
 
 export const parameters = {
   IdPath: {
@@ -13,7 +15,7 @@ export const parameters = {
     name: 'page',
     in: 'query',
     required: false,
-    description: 'Número de página (entero ≥ 1). Por defecto 1. Un valor inválido responde `400 VALIDATION_ERROR`.',
+    description: `Número de página (entero ≥ 1). Por defecto ${PAGINATION.DEFAULT_PAGE}. Un valor inválido responde \`400 VALIDATION_ERROR\`.`,
     schema: { type: 'integer' },
     example: 1,
   },
@@ -21,7 +23,7 @@ export const parameters = {
     name: 'limit',
     in: 'query',
     required: false,
-    description: 'Resultados por página (entero entre 1 y 100). Por defecto 20. Un valor inválido responde `400 VALIDATION_ERROR`.',
+    description: `Resultados por página (entero entre 1 y ${PAGINATION.MAX_LIMIT}). Por defecto ${PAGINATION.DEFAULT_LIMIT}. Un valor inválido responde \`400 VALIDATION_ERROR\`.`,
     schema: { type: 'integer' },
     example: 20,
   },
@@ -47,5 +49,47 @@ export const parameters = {
     required: false,
     description: 'Qué se inserta. `orders` necesita usuarios existentes; `deliveries` necesita pedidos sin entrega y repartidores; `all` inserta todo el conjunto ya relacionado.',
     schema: { type: 'string', enum: Object.values(MOCK_TYPES), default: MOCK_TYPES.USERS },
+  },
+  FilterRole: {
+    name: 'role',
+    in: 'query',
+    required: false,
+    description: 'Filtra por rol. Un valor fuera de los permitidos responde `400 INVALID_ROLE`.',
+    schema: { type: 'string', enum: Object.values(USER_ROLES) },
+  },
+  FilterOrderStatus: {
+    name: 'status',
+    in: 'query',
+    required: false,
+    description: 'Filtra por estado del pedido. Un valor inválido responde `400 INVALID_STATUS`.',
+    schema: { type: 'string', enum: Object.values(ORDER_STATUS) },
+  },
+  FilterPriority: {
+    name: 'priority',
+    in: 'query',
+    required: false,
+    description: 'Filtra por prioridad. Un valor inválido responde `400 INVALID_PRIORITY`.',
+    schema: { type: 'string', enum: Object.values(ORDER_PRIORITY) },
+  },
+  FilterCustomer: {
+    name: 'customer',
+    in: 'query',
+    required: false,
+    description: 'Filtra por id del cliente. Un id con formato inválido responde `400 INVALID_ID`.',
+    schema: { type: 'string', pattern: '^[0-9a-fA-F]{24}$' },
+  },
+  FilterDeliveryStatus: {
+    name: 'status',
+    in: 'query',
+    required: false,
+    description: 'Filtra por estado de la entrega. Un valor inválido responde `400 INVALID_STATUS`.',
+    schema: { type: 'string', enum: Object.values(DELIVERY_STATUS) },
+  },
+  FilterCourier: {
+    name: 'courier',
+    in: 'query',
+    required: false,
+    description: 'Filtra por id del repartidor. Un id con formato inválido responde `400 INVALID_ID`.',
+    schema: { type: 'string', pattern: '^[0-9a-fA-F]{24}$' },
   },
 };

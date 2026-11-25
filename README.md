@@ -16,6 +16,7 @@ API REST de **ShipNow** (plataforma de envíos) con arquitectura por capas **Con
 8. [Logging y monitoreo](#8-logging-y-monitoreo)
 9. [Testing](#9-testing)
 10. [Decisiones de diseño](#10-decisiones-de-diseño)
+11. [Producción y Docker](#11-producción-y-docker)
 
 ---
 
@@ -50,6 +51,9 @@ API REST de **ShipNow** (plataforma de envíos) con arquitectura por capas **Con
 | `MONGODB_URI` | Sí | Cadena de conexión a MongoDB |
 | `NODE_ENV` | Sí | `development`, `production` o `test` |
 | `LOG_LEVEL` | No | Fuerza el nivel de log (`fatal`, `error`, `warning`, `info`, `http`, `debug`). Si se omite depende de `NODE_ENV` |
+| `PUBLIC_URL` | No | URL pública de la API (ej. `https://api.tu-dominio.com`). Se usa como servidor en Swagger |
+| `ENABLE_INTERNAL_ENDPOINTS` | No | Habilita mocks y logger test. Por defecto: sí en `development`/`test`, **no** en `production` |
+| `ENABLE_DOCS` | No | Habilita Swagger (`/api/docs`). Por defecto: sí en todos los entornos |
 | `UPLOAD_DIR` | No | Carpeta donde se guardan los archivos subidos (por defecto `uploads`) |
 | `UPLOAD_MAX_FILE_SIZE_MB` | No | Tamaño máximo por archivo en MB (por defecto `5`) |
 
@@ -85,6 +89,10 @@ logs/                      Logs generados (ignorados por Git, salvo .gitkeep)
 uploads/                   Archivos subidos (ignorados por Git, salvo .gitkeep)
 .env.example               Variables del entorno de desarrollo
 .env.test                  Variables del entorno de testing (base descartable, sin credenciales)
+.env.production.example     Plantilla de variables de producción (para docker --env-file)
+Dockerfile                 Imagen de la API (build en dos etapas, usuario no root)
+docker-compose.yml         API + MongoDB para probar todo junto
+.dockerignore              Qué NO entra a la imagen
 ```
 
 ---
@@ -106,9 +114,10 @@ uploads/                   Archivos subidos (ignorados por Git, salvo .gitkeep)
 | POST | `/api/deliveries/:id/receipts` | **Subir un comprobante de la entrega** (`multipart/form-data`) |
 | GET / POST / DELETE | `/api/mocks/...` | Mocking y datos de prueba (sección 6) |
 | GET | `/api/logger/test` | Herramienta interna para probar el logger |
+| GET | `/api/health` | Health check (estado, entorno, uptime, timestamp y base de datos) |
 | GET | `/api/docs` | Swagger UI |
 
-Los listados aceptan `?page=` y `?limit=` (máximo 100).
+Todos los listados paginan con `?page=` y `?limit=` (**20 por defecto, máximo 100**) y admiten filtros: usuarios `?role=`, pedidos `?status=&priority=&customer=`, entregas `?status=&courier=`.
 
 ---
 
@@ -126,10 +135,11 @@ Con el servidor corriendo:
 3. Debajo de cada endpoint ves la respuesta exitosa y todos los errores posibles, con su **código** real (`USER_NOT_FOUND`, `FILE_TOO_LARGE`, etc.) y un ejemplo.
 4. Los endpoints de archivos aparecen como `multipart/form-data` con un selector de archivo.
 
-### Módulos documentados (28 operaciones)
+### Módulos documentados (29 operaciones)
 
 | Tag | Endpoints |
 |---|---|
+| **Health** | `GET /api/health` |
 | **Users** | CRUD de usuarios y carga de documentos |
 | **Products** | CRUD de productos |
 | **Orders** | listar, crear, consultar y cambiar el estado de un pedido |
@@ -478,8 +488,11 @@ MONGODB_URI="mongodb+srv://usuario:clave@cluster.mongodb.net/shipnow_test" npm t
 | `delivery-receipts.test.js` | **Carga de comprobantes** y todos sus errores |
 | `mocks.test.js` | `GET` simulados (sin guardar), `POST /seed` (todos los `type`), `DELETE /seed` y errores de `qty` |
 | `logger.test.js` | `GET /api/logger/test` y ruta inexistente |
+| `health.test.js` | Health check: estructura, sin información sensible, solo `GET` |
+| `internal-endpoints.test.js` | Mocks y logger test apagados (como en producción) responden 404; encendidos funcionan |
+| `pagination-filters.test.js` | Límite por defecto y máximo de los listados, filtros y sus errores |
 | `docs.test.js` | Swagger UI, `openapi.json` y los endpoints de carga como `multipart/form-data` |
-| `errors.test.js` | Ruta inexistente, JSON inválido, 500 y 503 (con el middleware aislado) |
+| `errors.test.js` | Ruta inexistente, JSON inválido, body demasiado grande (413), 500 y 503 (con el middleware aislado) |
 | `swagger-coverage.test.js` | Coherencia: exige un test por cada error y endpoint documentado en Swagger |
 
 `tests/unit/` cubre services, errores, logging, reglas de carga, almacenamiento en disco (carpeta temporal) y la spec de Swagger.
@@ -509,3 +522,142 @@ MONGODB_URI="mongodb+srv://usuario:clave@cluster.mongodb.net/shipnow_test" npm t
 - **Controller**: traduce HTTP ↔ Service (parsea query/params, elige el status code) y deriva los errores al middleware. Nunca importa Mongoose.
 
 Los services reciben sus dependencias (repositories, logger, almacenamiento de archivos) por constructor. Por eso se prueban con repositories falsos en memoria, sin levantar MongoDB.
+
+---
+
+## 11. Producción y Docker
+
+### Resumen de lo que se aplicó
+
+| Eje | Qué se hizo |
+|---|---|
+| **Performance** | Listados siempre paginados (20 por defecto, máx. 100) con filtros e índices en MongoDB; consultas con `lean()` y proyecciones; body JSON limitado a 100 kb (`413 PAYLOAD_TOO_LARGE`); archivos limitados (5 MB, solo PDF/JPG/PNG); sin operaciones síncronas en las peticiones (la única lectura síncrona ocurre una vez, al arrancar); el log `http` no se registra en producción |
+| **Producción** | Variables por entorno validadas al arrancar, health check, cierre ordenado ante `SIGTERM`, `x-powered-by` desactivado y criterio explícito para los endpoints internos |
+| **Docker** | `Dockerfile` de dos etapas con usuario no root y `HEALTHCHECK`, `.dockerignore` y `docker-compose.yml` |
+
+### Variables de entorno por entorno
+
+| Entorno | De dónde salen las variables |
+|---|---|
+| **Desarrollo** | Archivo `.env` (copia de `.env.example`; no se sube al repo) |
+| **Testing** | Archivo `.env.test` (versionado: base local descartable, sin credenciales) |
+| **Producción** | Variables reales del entorno: `docker run --env-file .env.production`, el panel de la plataforma de despliegue, etc. (plantilla: `.env.production.example`) |
+
+Necesarias en producción: `NODE_ENV=production`, `PORT`, `MONGODB_URI`. Opcionales: `LOG_LEVEL` (por defecto `info`), `PUBLIC_URL`, `ENABLE_INTERNAL_ENDPOINTS`, `ENABLE_DOCS`, `UPLOAD_DIR`, `UPLOAD_MAX_FILE_SIZE_MB` (ver la tabla de la sección 1).
+
+- **No hay valores sensibles en el código** ni en la imagen. Las credenciales llegan solo por variables de entorno.
+- **Si falta una variable crítica la app no arranca**: falla al iniciar con un mensaje claro y registra un log `fatal`. También se validan los valores (puerto entre 1 y 65535, booleanos `true`/`false`, `PUBLIC_URL` con formato de URL, `LOG_LEVEL` válido).
+- **JWT:** la API no tiene autenticación, por lo que no aplica y no se define un secreto que no se usaría.
+- **URLs de servicios externos:** el proyecto no consume servicios externos; la única URL configurable es `PUBLIC_URL`.
+
+### Health check
+
+`GET /api/health` (público, sin información sensible):
+
+```json
+{
+  "status": "success",
+  "payload": {
+    "status": "ok",
+    "service": "shipnow-api",
+    "environment": "production",
+    "uptime": 3661,
+    "timestamp": "2026-11-17T15:30:00.000Z",
+    "database": "connected"
+  }
+}
+```
+
+Si la base de datos no está conectada responde `503 DATABASE_ERROR` (la API no está lista para recibir tráfico). No incluye la URI de la base, variables de entorno ni versiones internas.
+
+### Criterio para los endpoints internos en producción
+
+| Endpoint | En producción | Cómo se cambia | Por qué |
+|---|---|---|---|
+| **Mocks** (`/api/mocks/...`) | **Apagado** (responde `404 ROUTE_NOT_FOUND`) | `ENABLE_INTERNAL_ENDPOINTS=true` | Insertan y borran datos: no deben estar expuestos en un sistema real |
+| **Logger test** (`/api/logger/test`) | **Apagado** (responde `404`) | `ENABLE_INTERNAL_ENDPOINTS=true` | Herramienta de depuración sin valor de negocio |
+| **Swagger** (`/api/docs`) | **Encendido** | `ENABLE_DOCS=false` | Es documentación sin datos sensibles y permite probar la API en el contenedor |
+| **Health check** | **Encendido** | — | Lo necesitan Docker y los orquestadores |
+
+En desarrollo y testing los mocks y el logger test están encendidos. Swagger **documenta solo lo que está activo**: con los endpoints internos apagados no aparecen los tags Mocks ni Logger. En un sistema real también conviene proteger Swagger (por ejemplo, detrás de autenticación o de una red interna); acá queda encendido por defecto para poder probar la API.
+
+### Cómo correr la API localmente
+
+```bash
+npm install
+cp .env.example .env     # completar PORT, MONGODB_URI y NODE_ENV (en Windows: copy)
+npm run dev
+```
+
+### Cómo correr los tests
+
+```bash
+npm test                 # unit + funcionales (necesita MongoDB corriendo)
+npm run test:unit        # solo lógica, sin base de datos
+```
+Más detalle en la sección 9 (Testing).
+
+### Docker
+
+**Puerto:** la API escucha en el **3000** dentro del contenedor (`PORT=3000`, `EXPOSE 3000`).
+
+**Construir la imagen**
+```bash
+docker build -t shipnow-api .
+```
+
+**Ejecutar el contenedor** (con una base de datos accesible; variables desde un archivo):
+```bash
+cp .env.production.example .env.production      # editar MONGODB_URI y demás (en Windows: copy)
+docker run -d --name shipnow-api -p 3000:3000   --env-file .env.production   -v shipnow-uploads:/app/uploads -v shipnow-logs:/app/logs   shipnow-api
+```
+O pasando las variables sueltas:
+```bash
+docker run -d --name shipnow-api -p 3000:3000   -e MONGODB_URI="mongodb://host.docker.internal:27017/shipnow"   shipnow-api
+```
+(`host.docker.internal` apunta a tu PC desde el contenedor en Docker Desktop. En Linux agregá `--add-host=host.docker.internal:host-gateway`.)
+
+Si falta `MONGODB_URI`, el contenedor **no arranca** y `docker logs shipnow-api` muestra el error.
+
+**Todo junto con Docker Compose** (API + MongoDB, sin instalar nada más):
+```bash
+docker compose up --build
+# para probar también los mocks y el logger test:
+ENABLE_INTERNAL_ENDPOINTS=true docker compose up --build        # PowerShell: $env:ENABLE_INTERNAL_ENDPOINTS="true"; docker compose up --build
+docker compose down        # detener (con -v también borra los datos)
+```
+
+**Qué probar con el contenedor en marcha**
+
+| Prueba | Resultado esperado |
+|---|---|
+| `curl http://localhost:3000/api/health` | `200` con `status: "ok"` y `database: "connected"` |
+| Abrir http://localhost:3000/api/docs | Swagger UI |
+| `curl "http://localhost:3000/api/users?limit=2"` | `200` con `payload: []` (o los usuarios existentes) |
+| `curl http://localhost:3000/api/mocks/users` | `404 ROUTE_NOT_FOUND` (apagado en producción) |
+| `docker ps` | El contenedor figura como `healthy` |
+| `docker stop shipnow-api` | Se detiene en pocos segundos y `docker logs` muestra "Señal SIGTERM recibida" y "Servidor detenido" |
+
+### Qué hace el Dockerfile
+
+- Imagen base `node:22-alpine`; instala solo las dependencias de producción (`npm ci --omit=dev`) en una etapa aparte.
+- Copia únicamente `package.json` y `src/`: no entran tests, README, `.env` ni logs.
+- Corre como usuario no root (`node`), expone el puerto 3000 y define un `HEALTHCHECK` sobre `/api/health`.
+- Arranca con `node src/server.js` (equivale al script `start`). Se usa `node` directo y no `npm start` para que la señal `SIGTERM` de `docker stop` llegue a la app y pueda cerrar ordenadamente.
+
+### Archivos que NO deben subirse al repositorio
+
+| Archivo / carpeta | Motivo |
+|---|---|
+| `node_modules/` | Se instala con `npm install` |
+| `.env`, `.env.production`, `.env.local` | Contienen credenciales (sí se versionan `.env.example`, `.env.test` y `.env.production.example`, que no tienen valores reales) |
+| `logs/*` | Logs generados (solo se versiona `logs/.gitkeep`) |
+| `uploads/*` y `uploads-test/` | Archivos subidos y de tests (solo se versiona `uploads/.gitkeep`) |
+
+El `.dockerignore` además deja fuera de la imagen: `.git`, `.env*`, `logs`, `uploads`, `coverage`, `tests`, archivos temporales y de editor.
+
+### Aclaraciones sobre logs y uploads
+
+- **Logs:** además de escribirse en archivos (`logs/`, rotados por día/tamaño), se envían a la consola, que es lo que muestra `docker logs`. En producción el nivel por defecto es `info` (no se registra cada petición ni `debug`), para no generar logs excesivos.
+- **Uploads:** los límites (5 MB, solo PDF/JPG/PNG, errores controlados) están en `src/config/`. Los archivos se guardan en el disco del servidor, y **el disco de un contenedor es efímero**: por eso en Docker `uploads/` debe ser un volumen (`-v shipnow-uploads:/app/uploads`). Para un uso real a gran escala, el siguiente paso sería un almacenamiento de objetos (por ejemplo, S3) en lugar del disco local; hoy los archivos tampoco se eliminan al borrar el usuario o la entrega.
+- **Seguridad básica:** el contenedor no corre como root, no revela que es Express (`x-powered-by` desactivado) y el health check no expone información sensible. No hay rate limiting ni HTTPS propios: en producción se esperan detrás de un proxy inverso.

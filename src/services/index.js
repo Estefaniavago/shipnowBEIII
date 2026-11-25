@@ -13,6 +13,8 @@ import { DeliveryService } from './delivery.service.js';
 import { OrderService } from './order.service.js';
 import { MockService } from './mock.service.js';
 import { LogService } from './log.service.js';
+import { HealthService } from './health.service.js';
+import { getDatabaseState } from '../config/db.config.js';
 import { DocumentService } from './document.service.js';
 
 const HASH_ROUNDS = 10;
@@ -27,6 +29,7 @@ export const documentService = new DocumentService({
   fileStorage: new LocalFileStorage({ rootDir: config.upload.dir }),
   logger,
 });
+export const healthService = new HealthService({ environment: config.nodeEnv, getDatabaseState });
 export const logService = new LogService(logger);
 export const mockService = new MockService({
   userRepository,

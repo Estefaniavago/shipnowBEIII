@@ -2,7 +2,7 @@ import { expect } from 'chai';
 import express from 'express';
 import request from 'supertest';
 import { api } from './helpers/api.js';
-import { expectError } from './helpers/assertions.js';
+import { expectError, expectSuccess as expectSuccessList } from './helpers/assertions.js';
 import { createErrorHandler } from '../../src/middlewares/error.middleware.js';
 import { ERROR_CODES, ERROR_DICTIONARY } from '../../src/errors/index.js';
 import { LOG_LEVELS } from '../../src/constants/index.js';
@@ -40,6 +40,17 @@ describe('Errores transversales (formato uniforme)', () => {
         { status: 400, code: ERROR_CODES.INVALID_JSON }
       );
       expect(body.message).to.equal(ERROR_DICTIONARY.INVALID_JSON.message);
+    });
+  });
+
+  describe('body demasiado grande', () => {
+    it('413 PAYLOAD_TOO_LARGE: un JSON de más de 100 kb se rechaza antes de llegar al controller', async () => {
+      const body = expectError(
+        await api().post('/api/users').send({ name: 'x'.repeat(150 * 1024), email: 'a@test.com', password: 'Test1234' }),
+        { status: 413, code: ERROR_CODES.PAYLOAD_TOO_LARGE }
+      );
+      expect(body.message).to.equal(ERROR_DICTIONARY.PAYLOAD_TOO_LARGE.message);
+      expect(expectSuccessList(await api().get('/api/users'))).to.be.empty;
     });
   });
 

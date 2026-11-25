@@ -1,3 +1,4 @@
+import { PAGINATION } from '../constants/index.js';
 import { DeliveryModel } from '../models/delivery.model.js';
 
 class DeliveryRepository {
@@ -6,8 +7,8 @@ class DeliveryRepository {
     return delivery.toObject({ versionKey: false });
   }
 
-  async getAll({ page = 1, limit = 20 } = {}) {
-    return DeliveryModel.find({}, '-__v')
+  async getAll({ filters = {}, page = PAGINATION.DEFAULT_PAGE, limit = PAGINATION.DEFAULT_LIMIT } = {}) {
+    return DeliveryModel.find(filters, '-__v')
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)

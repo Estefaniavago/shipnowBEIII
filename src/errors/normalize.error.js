@@ -12,6 +12,10 @@ export function normalizeError(err) {
     return new AppError(ERROR_CODES.INVALID_JSON, { cause: err });
   }
 
+  if (err?.type === 'entity.too.large') {
+    return new AppError(ERROR_CODES.PAYLOAD_TOO_LARGE, { cause: err });
+  }
+
   if (err?.name === 'ValidationError' && err.errors) {
     const details = Object.values(err.errors).map((e) => ({ field: e.path, message: e.message }));
     return new AppError(ERROR_CODES.VALIDATION_ERROR, { details, cause: err });

@@ -1,12 +1,12 @@
 import { ProductModel } from '../models/product.model.js';
-import { PRODUCT_STATUS } from '../constants/index.js';
+import { PAGINATION, PRODUCT_STATUS } from '../constants/index.js';
 
 // Proyección por defecto: ocultamos campos internos de Mongo.
 const DEFAULT_PROJECTION = '-__v';
 
 class ProductRepository {
   // Por defecto nunca devuelve productos DISCONTINUED.
-  async getAll({ excludeStatuses = [], page = 1, limit = 20 } = {}) {
+  async getAll({ excludeStatuses = [], page = PAGINATION.DEFAULT_PAGE, limit = PAGINATION.DEFAULT_LIMIT } = {}) {
     const hiddenStatuses = [PRODUCT_STATUS.DISCONTINUED, ...excludeStatuses];
     return ProductModel.find({ status: { $nin: hiddenStatuses } }, DEFAULT_PROJECTION)
       .sort({ createdAt: -1 })

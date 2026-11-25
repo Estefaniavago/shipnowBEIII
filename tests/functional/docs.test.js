@@ -28,8 +28,9 @@ describe('Swagger - /api/docs', () => {
   it('200: la spec documenta los tags y los endpoints principales', async () => {
     const { body } = await api().get('/api/docs/openapi.json');
 
-    expect(body.tags.map((t) => t.name)).to.include.members(['Users', 'Orders', 'Deliveries', 'Mocks', 'Logger']);
+    expect(body.tags.map((t) => t.name)).to.include.members(['Health', 'Users', 'Orders', 'Deliveries', 'Mocks', 'Logger']);
     expect(Object.keys(body.paths)).to.include.members([
+      '/api/health',
       '/api/users', '/api/users/{id}',
       '/api/orders', '/api/orders/{id}', '/api/orders/{id}/status',
       '/api/deliveries', '/api/deliveries/{id}',

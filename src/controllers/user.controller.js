@@ -6,8 +6,8 @@ const ok = (res, statusCode, payload) =>
   res.status(statusCode).json({ status: RESPONSE_STATUS.SUCCESS, payload });
 
 export const getAll = asyncHandler(async (req, res) => {
-  const { page, limit } = req.query;
-  ok(res, HTTP_STATUS.OK, await userService.getAll({ page, limit }));
+  const { page, limit, role } = req.query;
+  ok(res, HTTP_STATUS.OK, await userService.getAll({ page, limit, role }));
 });
 
 export const getById = asyncHandler(async (req, res) => {

@@ -3,9 +3,9 @@ import {
   NegativeValueError,
   RequestValidationError,
 } from '../errors/index.js';
+import { PAGINATION } from '../constants/index.js';
 
 const OBJECT_ID_REGEX = /^[0-9a-fA-F]{24}$/;
-const MAX_PAGE_SIZE = 100;
 
 export function assertValidId(id) {
   if (typeof id !== 'string' || !OBJECT_ID_REGEX.test(id)) throw new InvalidIdError(id);
@@ -40,6 +40,6 @@ function toPositiveInt(field, value, max) {
 export function parsePagination({ page, limit } = {}) {
   const result = {};
   if (page !== undefined) result.page = toPositiveInt('page', page);
-  if (limit !== undefined) result.limit = toPositiveInt('limit', limit, MAX_PAGE_SIZE);
+  if (limit !== undefined) result.limit = toPositiveInt('limit', limit, PAGINATION.MAX_LIMIT);
   return result;
 }

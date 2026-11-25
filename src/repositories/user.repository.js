@@ -1,11 +1,12 @@
+import { PAGINATION } from '../constants/index.js';
 import { UserModel } from '../models/user.model.js';
 
 // Por defecto NUNCA se devuelve el hash del password.
 const PUBLIC_PROJECTION = '-password -__v';
 
 class UserRepository {
-  async getAll({ page = 1, limit = 20 } = {}) {
-    return UserModel.find({}, PUBLIC_PROJECTION)
+  async getAll({ filters = {}, page = PAGINATION.DEFAULT_PAGE, limit = PAGINATION.DEFAULT_LIMIT } = {}) {
+    return UserModel.find(filters, PUBLIC_PROJECTION)
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)

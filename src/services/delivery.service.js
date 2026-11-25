@@ -27,8 +27,18 @@ export class DeliveryService {
     this.logger = logger;
   }
 
-  async getAll({ page, limit } = {}) {
-    return this.deliveryRepository.getAll(parsePagination({ page, limit }));
+  // Filtros opcionales: status y courier. La paginación siempre se aplica.
+  async getAll({ page, limit, status, courier } = {}) {
+    const filters = {};
+    if (status !== undefined) {
+      if (!validStatuses.includes(status)) throw new InvalidStatusError(status, validStatuses);
+      filters.status = status;
+    }
+    if (courier !== undefined) {
+      assertValidId(courier);
+      filters.courier = courier;
+    }
+    return this.deliveryRepository.getAll({ filters, ...parsePagination({ page, limit }) });
   }
 
   async getById(id) {

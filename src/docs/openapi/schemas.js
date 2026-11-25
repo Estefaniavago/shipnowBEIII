@@ -283,6 +283,20 @@ export const schemas = {
     },
   },
 
+  // ---------- Health ----------
+  HealthCheck: {
+    type: 'object',
+    description: 'Estado de la API. No incluye información sensible (ni URI de base de datos ni variables de entorno).',
+    properties: {
+      status: { type: 'string', enum: ['ok'], example: 'ok' },
+      service: { type: 'string', example: 'shipnow-api' },
+      environment: { type: 'string', enum: ['development', 'production', 'test'], example: 'production' },
+      uptime: { type: 'integer', description: 'Segundos desde que arrancó el proceso.', example: 3600 },
+      timestamp: dateTime(NOW),
+      database: { type: 'string', enum: ['connected'], example: 'connected' },
+    },
+  },
+
   // ---------- Logger ----------
   LoggerTestResult: {
     type: 'object',

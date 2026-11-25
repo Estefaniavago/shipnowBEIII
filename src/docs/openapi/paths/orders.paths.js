@@ -10,10 +10,10 @@ export const ordersPaths = {
   '/api/orders': {
     get: operation({
       tag, id: 'listOrders', summary: 'Listar pedidos',
-      description: 'Devuelve los pedidos paginados, del más nuevo al más antiguo.',
-      parameters: [paramRef('Page'), paramRef('Limit')],
+      description: 'Devuelve los pedidos paginados, del más nuevo al más antiguo. Se puede filtrar por `status`, `priority` y `customer`.',
+      parameters: [paramRef('FilterOrderStatus'), paramRef('FilterPriority'), paramRef('FilterCustomer'), paramRef('Page'), paramRef('Limit')],
       responses: success(H.OK, 'Lista de pedidos', { type: 'array', items: ref('Order') }),
-      errors: [E.VALIDATION_ERROR, ...DB_ERRORS], examplePath: '/api/orders?page=0',
+      errors: [E.VALIDATION_ERROR, E.INVALID_STATUS, E.INVALID_PRIORITY, E.INVALID_ID, ...DB_ERRORS], examplePath: '/api/orders?page=0',
     }),
     post: operation({
       tag, id: 'createOrder', summary: 'Crear pedido',

@@ -46,8 +46,22 @@ export class OrderService {
     this.logger = logger;
   }
 
-  async getAll({ page, limit } = {}) {
-    return this.orderRepository.getAll(parsePagination({ page, limit }));
+  // Filtros opcionales: status, priority y customer. La paginación siempre se aplica.
+  async getAll({ page, limit, status, priority, customer } = {}) {
+    const filters = {};
+    if (status !== undefined) {
+      if (!validStatuses.includes(status)) throw new InvalidStatusError(status, validStatuses);
+      filters.status = status;
+    }
+    if (priority !== undefined) {
+      if (!validPriorities.includes(priority)) throw new InvalidPriorityError(priority, validPriorities);
+      filters.priority = priority;
+    }
+    if (customer !== undefined) {
+      assertValidId(customer);
+      filters.customer = customer;
+    }
+    return this.orderRepository.getAll({ filters, ...parsePagination({ page, limit }) });
   }
 
   async getById(id) {

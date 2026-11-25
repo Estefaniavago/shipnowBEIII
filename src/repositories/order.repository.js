@@ -1,3 +1,4 @@
+import { PAGINATION } from '../constants/index.js';
 import { OrderModel } from '../models/order.model.js';
 
 class OrderRepository {
@@ -11,8 +12,8 @@ class OrderRepository {
     return order.toObject({ versionKey: false });
   }
 
-  async getAll({ page = 1, limit = 20 } = {}) {
-    return OrderModel.find({}, '-__v')
+  async getAll({ filters = {}, page = PAGINATION.DEFAULT_PAGE, limit = PAGINATION.DEFAULT_LIMIT } = {}) {
+    return OrderModel.find(filters, '-__v')
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)

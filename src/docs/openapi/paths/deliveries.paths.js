@@ -10,10 +10,10 @@ export const deliveriesPaths = {
   '/api/deliveries': {
     get: operation({
       tag, id: 'listDeliveries', summary: 'Listar entregas',
-      description: 'Devuelve las entregas paginadas, de la más nueva a la más antigua.',
-      parameters: [paramRef('Page'), paramRef('Limit')],
+      description: 'Devuelve las entregas paginadas, de la más nueva a la más antigua. Se puede filtrar por `status` y `courier`.',
+      parameters: [paramRef('FilterDeliveryStatus'), paramRef('FilterCourier'), paramRef('Page'), paramRef('Limit')],
       responses: success(H.OK, 'Lista de entregas', { type: 'array', items: ref('Delivery') }),
-      errors: [E.VALIDATION_ERROR, ...DB_ERRORS], examplePath: '/api/deliveries?page=0',
+      errors: [E.VALIDATION_ERROR, E.INVALID_STATUS, E.INVALID_ID, ...DB_ERRORS], examplePath: '/api/deliveries?page=0',
     }),
     post: operation({
       tag, id: 'createDelivery', summary: 'Crear entrega para un pedido',
